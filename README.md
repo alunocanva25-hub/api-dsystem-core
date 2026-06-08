@@ -135,3 +135,8 @@ GET /api/core/integration-map
 ## V1.0.0.6
 
 Adicionado padrão DSYSTEM RETAIL com controle de segmento/plano pelo DSYSTEM SERVER CORE / HUB.
+
+
+## V1.0.1.4 — Compatibilidade Financeira GO
+
+Patch focado em `/api/transactions`, aliases financeiros e resumo de receitas/despesas/saldo para o DS STUDIO GO.

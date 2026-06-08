@@ -104,8 +104,21 @@ def _appointment_out(a: Appointment) -> dict[str, Any]:
     }
 
 
+def _normalize_financial_type(value: Any) -> str:
+    txt = str(value or "").strip().lower()
+    txt = txt.replace("í", "i").replace("é", "e").replace("ê", "e").replace("á", "a").replace("ã", "a").replace("ç", "c")
+    if txt in {"entrada", "receita", "income", "credit", "credito", "in", "positivo", "+", "e"}:
+        return "entrada"
+    if txt in {"saida", "despesa", "expense", "debit", "debito", "out", "negativo", "-", "s"}:
+        return "saida"
+    return txt or "entrada"
+
+
 def _transaction_out(t: TransactionRecord) -> dict[str, Any]:
     raw = _raw(t)
+    kind = _normalize_financial_type(t.transaction_type)
+    amount = float(t.amount or 0)
+    occurred_at = t.transaction_date
     return {
         "id": t.id,
         "external_id": t.external_id,
@@ -115,15 +128,26 @@ def _transaction_out(t: TransactionRecord) -> dict[str, Any]:
         "last_source": raw.get("last_source") or t.sync_source,
         "sync_status": raw.get("sync_status"),
         "desktop_imported": raw.get("desktop_imported", False),
-        "kind": t.transaction_type,
-        "type": t.transaction_type,
-        "amount": t.amount,
+        "kind": kind,
+        "type": kind,
+        "tipo": kind,
+        "transaction_type": kind,
+        "amount": amount,
+        "value": amount,
+        "valor": amount,
+        "total": amount,
         "category": t.category,
+        "categoria": t.category,
         "payment_method": t.payment_method,
+        "forma_pagamento": t.payment_method,
         "description": t.description,
-        "occurred_at": t.transaction_date,
-        "transaction_date": t.transaction_date,
+        "descricao": t.description,
+        "occurred_at": occurred_at,
+        "date": occurred_at,
+        "data": occurred_at,
+        "transaction_date": occurred_at,
         "customer_name": t.customer_name,
+        "client_name": t.customer_name,
         "deleted": bool(t.is_deleted),
         "is_deleted": bool(t.is_deleted),
         "deleted_at": _dt(t.deleted_at),

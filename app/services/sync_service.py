@@ -46,9 +46,10 @@ def _deleted_at(data: dict[str, Any]):
 
 def _normalize_type(value: Any) -> str:
     txt = str(value or "").strip().lower()
-    if txt in {"entrada", "income", "credit", "credito", "crédito", "receita", "in", "e"}:
+    txt = txt.replace("í", "i").replace("é", "e").replace("ê", "e").replace("á", "a").replace("ã", "a").replace("ç", "c")
+    if txt in {"entrada", "income", "credit", "credito", "receita", "in", "e", "+", "positivo", "receber", "a receber"}:
         return "entrada"
-    if txt in {"saida", "saída", "expense", "debit", "debito", "débito", "despesa", "out", "s"}:
+    if txt in {"saida", "expense", "debit", "debito", "despesa", "out", "s", "-", "negativo", "pagar", "a pagar"}:
         return "saida"
     return txt or "entrada"
 
@@ -123,12 +124,12 @@ def _transaction_values(company_id: int, module_code: str, sync_source: str, dat
     if not base:
         return None
     base.update({
-        "transaction_type": _normalize_type(_first(data, "transaction_type", "type", "tipo", "natureza")),
-        "description": str(_first(data, "description", "descricao", "descrição", "historico", "histórico", default="Lançamento financeiro")),
-        "amount": _amount(_first(data, "amount", "valor", "total", "vl_total")),
-        "category": _first(data, "category", "categoria", "grupo"),
-        "payment_method": _first(data, "payment_method", "forma_pagamento", "pagamento"),
-        "transaction_date": _first(data, "transaction_date", "data", "dt_lancamento", "created_at"),
+        "transaction_type": _normalize_type(_first(data, "transaction_type", "kind", "type", "tipo", "natureza", "movimento", "tipo_movimento", "tipo_lancamento")),
+        "description": str(_first(data, "description", "descricao", "descrição", "historico", "histórico", "nome", default="Lançamento financeiro")),
+        "amount": _amount(_first(data, "amount", "value", "valor", "total", "vl_total", "preco", "preço")),
+        "category": _first(data, "category", "categoria", "grupo", "classificacao", "classificação"),
+        "payment_method": _first(data, "payment_method", "forma_pagamento", "pagamento", "forma"),
+        "transaction_date": _first(data, "transaction_date", "occurred_at", "date", "data", "dt_lancamento", "created_at"),
         "customer_external_id": _first(data, "customer_external_id", "cliente_id", "id_cliente", "cod_cliente"),
         "customer_name": _first(data, "customer_name", "cliente_nome", "cliente", "nome_cliente"),
         "notes": _first(data, "notes", "observacao", "observações", "obs"),
