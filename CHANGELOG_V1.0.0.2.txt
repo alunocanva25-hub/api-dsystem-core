@@ -1,0 +1,18 @@
+DSYSTEM SERVER CORE V1.0.0.2
+
+Base: V1.0.0.1_CORRECAO_DEPENDENCIAS
+
+Alterações:
+- Versão atualizada para 1.0.0.2.
+- Criado painel HTML inicial em /.
+- Criado endpoint /api/core/overview.
+- Criado endpoint autenticado /api/sync/ping.
+- Criado endpoint base /api/sync/studio.
+- Criada listagem de módulos por empresa.
+- Criada desativação de módulo por empresa.
+- Criado README_EVOLUCAO.md.
+
+Cuidados:
+- Não muda a forma de rodar local.
+- Não adiciona psycopg2-binary ao requirements local.
+- Não altera a regra de login funcional da versão anterior.

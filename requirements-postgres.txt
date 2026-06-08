@@ -1,0 +1,5 @@
+# Instale este arquivo apenas quando for usar PostgreSQL em producao.
+# Use DATABASE_URL no formato:
+# postgresql+psycopg://usuario:senha@host:5432/dsystem_core
+-r requirements.txt
+psycopg[binary]>=3.2.0

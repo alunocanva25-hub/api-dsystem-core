@@ -1,0 +1,6 @@
+DSYSTEM SERVER CORE V1.0.1.3
+- Compatibilidade reforçada de token para DS STUDIO GO.
+- /api/auth/login retorna access_token + token.
+- /api/login retorna access_token/token/jwt/bearer e data.token.
+- Adicionada rota POST /api/debug/login-check.
+- Mantido modo servidor local em rede da V1.0.1.2.

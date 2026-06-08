@@ -1,0 +1,46 @@
+{
+  "login_request": {
+    "username": "master",
+    "password": "master123"
+  },
+  "login_response_exemplo": {
+    "access_token": "TOKEN_GERADO_PELA_API",
+    "token_type": "bearer",
+    "expires_in_minutes": 1440,
+    "user": {
+      "id": 1,
+      "company_id": 1,
+      "username": "master",
+      "full_name": "Master DSYSTEM",
+      "email": "master@dsystem.local",
+      "role": "MASTER",
+      "is_active": true,
+      "company": {
+        "id": 1,
+        "name": "DSYSTEM MASTER",
+        "slug": "dsystem-master",
+        "document": null,
+        "is_active": true
+      },
+      "modules": [
+        {
+          "id": 1,
+          "code": "studio",
+          "name": "DSYSTEM STUDIO",
+          "description": "Sistema desktop principal do ecossistema DSYSTEM.",
+          "plan": "core",
+          "is_enabled": true
+        }
+      ],
+      "permissions": {
+        "role": "MASTER",
+        "can_manage_companies": true,
+        "can_manage_users": true,
+        "can_manage_modules": true,
+        "can_view_audit": true,
+        "can_sync": true,
+        "enabled_module_codes": ["studio", "studio_go", "pulselab", "ar_scanner"]
+      }
+    }
+  }
+}

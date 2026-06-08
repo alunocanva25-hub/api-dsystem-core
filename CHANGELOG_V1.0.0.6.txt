@@ -1,0 +1,15 @@
+DSYSTEM SERVER CORE V1.0.0.6_RETAIL_SEGMENTOS_PLANOS
+
+- Removido o módulo oficial pousada do padrão inicial.
+- Adicionado módulo oficial retail — DSYSTEM RETAIL.
+- Criado modelo de produtos, segmentos, planos e produto contratado por empresa.
+- Criado vínculo empresa + produto + segmento + plano.
+- Criado vínculo empresa + produto + módulos liberados.
+- Criados segmentos iniciais do DSYSTEM RETAIL: MARKET, CONVENIENCE, CONSTRUCTION, GENERAL_STORE.
+- Criados planos iniciais: BASICO, PROFISSIONAL, PREMIUM, ENTERPRISE.
+- Criada rota /api/core/retail-standards.
+- Criada rota /api/core/products.
+- Criada rota /api/core/segments.
+- Criada rota /api/core/plans.
+- Criada rota /api/core/company-product-config.
+- A empresa padrão dsystem-master recebe DSYSTEM RETAIL com segmento MARKET e plano PROFISSIONAL para testes locais.

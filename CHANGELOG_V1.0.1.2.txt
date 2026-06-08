@@ -1,0 +1,10 @@
+DSYSTEM SERVER CORE V1.0.1.2 - MODO SERVIDOR LOCAL EM REDE
+
+- Adicionado INICIAR_SERVIDOR_REDE.bat.
+- Adicionado LIBERAR_FIREWALL_PORTA_8000.bat.
+- Adicionado MOSTRAR_IP_SERVIDOR.bat.
+- Adicionado README_SERVIDOR_LOCAL_REDE_V1.0.1.2.md.
+- Adicionada rota GET /api/core/network-info.
+- Atualizada tela inicial para destacar o modo Servidor Local/Rede.
+- Atualizada versão para 1.0.1.2.
+- Mantida compatibilidade GO completa da V1.0.1.1.

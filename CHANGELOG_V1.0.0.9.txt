@@ -1,0 +1,17 @@
+DSYSTEM SERVER CORE V1.0.0.9 — ADMIN REFINADO + PLANOS GLOBAIS
+
+Base: V1.0.0.8_SEGURANCA_PERMISSOES.
+
+Principais mudanças:
+- Planos passaram a ser globais para todos os produtos DSYSTEM, não apenas para o RETAIL.
+- Incluído plano TRIAL/Teste.
+- Padronizados planos globais: TRIAL, STARTER, BASIC, PRO, BUSINESS e ENTERPRISE.
+- Padronizados status de plano: TRIAL, ACTIVE, SUSPENDED, CANCELLED e EXPIRED.
+- CompanyProduct agora possui controle de status, trial, assinatura e cancelamento.
+- HUB poderá futuramente ativar, trocar, suspender, cancelar ou expirar plano de qualquer produto.
+- Adicionada rota /api/core/plan-standards.
+- Adicionada rota administrativa /api/admin/plans.
+- Adicionada rota administrativa PATCH /api/admin/company-products/{company_product_id}/plan.
+
+Observação:
+- Para carregar a estrutura nova em SQLite local, recomenda-se resetar o ambiente local.

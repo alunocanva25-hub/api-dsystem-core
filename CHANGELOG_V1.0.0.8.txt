@@ -1,0 +1,16 @@
+DSYSTEM SERVER CORE V1.0.0.8 — SEGURANCA E PERMISSOES
+
+Base: V1.0.0.7_ADMIN_EMPRESAS_USUARIOS
+
+Adicionado:
+- Padronizacao inicial dos perfis oficiais: MASTER, ADMIN, MANAGER, OPERATOR e VIEWER.
+- Matriz inicial de permissoes por perfil.
+- Novo servico app/services/permission_service.py.
+- GET /api/auth/permissions.
+- GET /api/auth/context.
+- GET /api/core/security-standards.
+- Retorno de sessao com regras detalhadas em permissions.rules.
+
+Observacao:
+- Mantido SQLite para teste local.
+- PostgreSQL/HTTPS/CORS restrito/refresh token ficam para etapas de producao.
