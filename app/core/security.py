@@ -43,6 +43,42 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return False
 
 
+
+
+def verify_password_flexible(plain_password: str, stored_password: str | None) -> bool:
+    """Validação compatível para usuários vindos do DSYSTEM STUDIO.
+
+    Mantém o padrão oficial PBKDF2 da CORE, mas aceita formatos legados para não
+    quebrar usuários sincronizados pelo Studio durante a migração:
+    - pbkdf2_sha256$...  -> valida com verify_password
+    - senha em texto puro -> compara com segurança
+    - sha256/md5 hex      -> compara com hashes comuns legados
+
+    Observação: quando o Studio reenviar a senha em texto no sync, a API volta a
+    gravar no padrão PBKDF2 oficial.
+    """
+    if plain_password is None or stored_password is None:
+        return False
+    plain = str(plain_password)
+    stored = str(stored_password)
+    if not stored:
+        return False
+    if stored.startswith("pbkdf2_sha256$"):
+        return verify_password(plain, stored)
+    if hmac.compare_digest(plain, stored):
+        return True
+    try:
+        sha256_hex = hashlib.sha256(plain.encode("utf-8")).hexdigest()
+        if hmac.compare_digest(sha256_hex.lower(), stored.lower()):
+            return True
+        md5_hex = hashlib.md5(plain.encode("utf-8")).hexdigest()
+        if hmac.compare_digest(md5_hex.lower(), stored.lower()):
+            return True
+    except Exception:
+        return False
+    return False
+
+
 def create_access_token(data: dict) -> str:
     header = {"alg": ALGORITHM, "typ": "JWT"}
     payload = data.copy()

@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.security import create_access_token, hash_password, verify_password_flexible
 from app.db.session import get_db
 from app.models.company import Company
 from app.models.user import User
@@ -47,6 +47,38 @@ def _first(data: dict[str, Any], *keys: str, default=None):
             return value
     return default
 
+
+
+
+def _extract_studio_password(raw: dict[str, Any]) -> str | None:
+    """Extrai senha enviada pelo DSYSTEM STUDIO em diferentes nomes de campo.
+
+    Alguns patches do Studio podem enviar `password`, `senha`, `password_hash`,
+    `senha_hash`, `pass`, `user_password` ou `pin`. Quando vier uma senha em
+    texto, ela será regravada no padrão seguro PBKDF2. Quando vier um hash legado,
+    ele é preservado para login flexível durante a migração.
+    """
+    for key in (
+        "password", "senha", "pass", "user_password", "api_password",
+        "password_hash", "senha_hash", "hash_senha", "pin", "codigo_acesso",
+    ):
+        value = raw.get(key)
+        if value is not None and str(value).strip() != "":
+            return str(value).strip()
+    return None
+
+
+def _store_studio_password(value: str) -> str:
+    value = str(value)
+    # Hash oficial da CORE: preserva se já vier neste formato.
+    if value.startswith("pbkdf2_sha256$"):
+        return value
+    # Hash legado comum: preserva para validação flexível.
+    lowered = value.lower()
+    if len(lowered) in (32, 64) and all(c in "0123456789abcdef" for c in lowered):
+        return value
+    # Senha em texto: regrava com hash oficial.
+    return hash_password(value)
 
 def _default_company(db: Session, slug: str | None = None) -> Company:
     settings = get_settings()
@@ -117,8 +149,10 @@ def _appointment_out(a: Appointment) -> dict[str, Any]:
         "external_id": a.external_id,
         "source": a.sync_source or raw.get("source") or "api_local",
         "last_source": raw.get("last_source") or a.sync_source,
-        "sync_status": raw.get("sync_status"),
+        "status": raw.get("status") or ("cancelado" if a.is_deleted else None),
+        "sync_status": raw.get("sync_status") or ("cancelado" if a.is_deleted else None),
         "desktop_imported": raw.get("desktop_imported", False),
+        "pending_desktop_pull": raw.get("pending_desktop_pull", bool(a.is_deleted and (a.sync_source == "go_mobile"))),
         "client_name": a.customer_name or "Cliente",
         "professional_name": a.professional_name or "Profissional",
         "service_name": a.service_name or "Serviço",
@@ -147,8 +181,10 @@ def _transaction_out(t: TransactionRecord) -> dict[str, Any]:
         "external_id": t.external_id,
         "source": t.sync_source or raw.get("source") or "api_local",
         "last_source": raw.get("last_source") or t.sync_source,
-        "sync_status": raw.get("sync_status"),
+        "status": raw.get("status") or ("cancelado" if t.is_deleted else None),
+        "sync_status": raw.get("sync_status") or ("cancelado" if t.is_deleted else None),
         "desktop_imported": raw.get("desktop_imported", False),
+        "pending_desktop_pull": raw.get("pending_desktop_pull", bool(t.is_deleted and (t.sync_source == "go_mobile"))),
         "kind": t.transaction_type,
         "amount": t.amount,
         "category": t.category or "Geral",
@@ -173,7 +209,7 @@ def legacy_health():
 def legacy_login(payload: LegacyLoginRequest, request: Request, db: Session = Depends(get_db)):
     company = _default_company(db, payload.company_slug)
     user = db.query(User).filter(User.company_id == company.id, User.username == payload.username).first()
-    ok = bool(user and verify_password(payload.password, user.password_hash))
+    ok = bool(user and verify_password_flexible(payload.password, user.password_hash))
     # Compatibilidade local com a API antiga do GO: master / 123456.
     if user and user.username == "master" and payload.password == "123456":
         ok = True
@@ -220,7 +256,7 @@ def debug_login_check(payload: LegacyLoginRequest, db: Session = Depends(get_db)
     try:
         company = _default_company(db, payload.company_slug)
         user = db.query(User).filter(User.company_id == company.id, User.username == payload.username).first()
-        password_valid = bool(user and verify_password(payload.password, user.password_hash))
+        password_valid = bool(user and verify_password_flexible(payload.password, user.password_hash))
         if user and user.username == "master" and payload.password == "123456":
             password_valid = True
         if user and password_valid and user.is_active:
@@ -283,8 +319,9 @@ def studio_users_sync(payload: StudioUsersSyncPayload, db: Session = Depends(get
                 user.source = str(_first(raw, "source", default="desktop_sync") or "desktop_sync")
                 if external_id:
                     user.external_id = str(external_id)
-                if raw.get("password") or raw.get("senha"):
-                    user.password_hash = hash_password(str(_first(raw, "password", "senha")))
+                incoming_password = _extract_studio_password(raw)
+                if incoming_password:
+                    user.password_hash = _store_studio_password(incoming_password)
                 stats["updated"] += 1
             else:
                 user = User(
@@ -292,7 +329,7 @@ def studio_users_sync(payload: StudioUsersSyncPayload, db: Session = Depends(get
                     username=username or f"user_{external_id}",
                     full_name=full_name,
                     email=_first(raw, "email"),
-                    password_hash=hash_password(str(_first(raw, "password", "senha", default="123456"))),
+                    password_hash=_store_studio_password(_extract_studio_password(raw) or "123456"),
                     role=_core_role(_first(raw, "role", "perfil", default="OPERATOR")),
                     is_active=bool(_first(raw, "is_active", "ativo", default=True)),
                     source=str(_first(raw, "source", default="desktop_sync") or "desktop_sync"),

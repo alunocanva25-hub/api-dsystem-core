@@ -1,4 +1,5 @@
 from typing import Any
+import json
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -60,6 +61,11 @@ def _normalize_financial_type(value: Any) -> str:
 
 
 def _transaction_out(t: TransactionRecord) -> dict[str, Any]:
+    raw = {}
+    try:
+        raw = json.loads(t.raw_payload or "{}")
+    except Exception:
+        raw = {}
     kind = _normalize_financial_type(t.transaction_type)
     amount = float(t.amount or 0)
     occurred_at = t.transaction_date
@@ -70,7 +76,11 @@ def _transaction_out(t: TransactionRecord) -> dict[str, Any]:
         "external_id": t.external_id,
         "source": t.sync_source,
         "sync_source": t.sync_source,
-        "last_source": t.sync_source,
+        "last_source": raw.get("last_source") or t.sync_source,
+        "status": raw.get("status") or ("cancelado" if t.is_deleted else None),
+        "sync_status": raw.get("sync_status") or ("cancelado" if t.is_deleted else None),
+        "desktop_imported": raw.get("desktop_imported", False),
+        "pending_desktop_pull": raw.get("pending_desktop_pull", bool(t.is_deleted and (t.sync_source == "go_mobile"))),
 
         # Contrato financeiro compatível com GO antigo/novo
         "kind": kind,

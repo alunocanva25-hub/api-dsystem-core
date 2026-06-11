@@ -21,15 +21,46 @@ def _external_id(data: dict[str, Any]) -> str | None:
     return str(value)
 
 
+def _cancel_status(data: dict[str, Any]) -> bool:
+    value = _first(data, "sync_status", "status", "situacao", "situação", "cancelled", "canceled", default="")
+    txt = str(value or "").strip().lower()
+    txt = txt.replace("í", "i").replace("é", "e").replace("ê", "e").replace("á", "a").replace("ã", "a").replace("ç", "c")
+    return txt in {"cancelado", "cancelada", "cancelled", "canceled", "excluido", "excluida", "deleted", "removido", "removida"}
+
+
 def _bool_deleted(data: dict[str, Any]) -> bool:
     value = _first(data, "is_deleted", "deleted", "excluido", "excluida", default=False)
     if isinstance(value, bool):
-        return value
+        return value or _cancel_status(data)
     if isinstance(value, (int, float)):
-        return bool(value)
+        return bool(value) or _cancel_status(data)
     if isinstance(value, str):
-        return value.strip().lower() in {"1", "true", "sim", "s", "yes", "y", "excluido", "excluida", "deleted"}
-    return False
+        return value.strip().lower() in {"1", "true", "sim", "s", "yes", "y", "excluido", "excluida", "deleted", "cancelado", "cancelada", "cancelled", "canceled"} or _cancel_status(data)
+    return _cancel_status(data)
+
+
+def _enrich_deleted_payload(data: dict[str, Any], *, sync_source: str, deleted_at_value) -> dict[str, Any]:
+    enriched = dict(data)
+    if _bool_deleted(enriched):
+        deleted_at_text = deleted_at_value.isoformat() if hasattr(deleted_at_value, "isoformat") else str(deleted_at_value)
+        source_value = str(_first(enriched, "source", "sync_source", default=sync_source) or sync_source)
+        if source_value in {"api_local", "desktop_sync"}:
+            # Exclusões recebidas por rotas compatíveis do GO devem voltar para o Studio como go_mobile.
+            source_value = "go_mobile" if str(sync_source) == "go_mobile" else source_value
+        enriched.update({
+            "deleted": True,
+            "is_deleted": True,
+            "deleted_at": enriched.get("deleted_at") or deleted_at_text,
+            "status": enriched.get("status") or "cancelado",
+            "sync_status": enriched.get("sync_status") or "cancelado",
+            "last_source": enriched.get("last_source") or source_value,
+            "source": enriched.get("source") or source_value,
+            "sync_source": enriched.get("sync_source") or source_value,
+            "desktop_imported": False,
+            "pending_desktop_pull": True,
+            "imported": False,
+        })
+    return enriched
 
 
 def _deleted_at(data: dict[str, Any]):
@@ -74,16 +105,20 @@ def _base_fields(company_id: int, module_code: str, sync_source: str, data: dict
     external_id = _external_id(data)
     if not external_id:
         return None
+    deleted = _bool_deleted(data)
+    deleted_at_value = _deleted_at(data)
+    enriched_payload = _enrich_deleted_payload(data, sync_source=sync_source, deleted_at_value=deleted_at_value)
+    final_sync_source = str(_first(enriched_payload, "sync_source", "source", default=sync_source) or sync_source)
     return {
         "company_id": company_id,
         "module_code": str(_first(data, "module_code", default=module_code) or module_code),
         "external_id": external_id,
-        "sync_source": str(_first(data, "sync_source", default=sync_source) or sync_source),
-        "is_deleted": _bool_deleted(data),
-        "deleted_at": _deleted_at(data),
+        "sync_source": final_sync_source,
+        "is_deleted": deleted,
+        "deleted_at": deleted_at_value,
         "external_created_at": _first(data, "created_at", "dtcriacao", "data_criacao"),
         "external_updated_at": _first(data, "updated_at", "dtalteracao", "data_alteracao"),
-        "raw_payload": json.dumps(data, ensure_ascii=False, default=str),
+        "raw_payload": json.dumps(enriched_payload, ensure_ascii=False, default=str),
     }
 
 

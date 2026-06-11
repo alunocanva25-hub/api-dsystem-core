@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from app.core.config import get_settings
-from app.core.security import create_access_token, verify_password
+from app.core.security import create_access_token, verify_password_flexible
 from app.db.session import get_db
 from app.models.company import Company
 from app.models.user import User
@@ -27,7 +27,7 @@ def _find_user_for_login(db: Session, payload: LoginRequest) -> User | None:
 def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
     settings = get_settings()
     user = _find_user_for_login(db, payload)
-    if not user or not verify_password(payload.password, user.password_hash):
+    if not user or not verify_password_flexible(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuário ou senha inválidos")
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuário inativo")

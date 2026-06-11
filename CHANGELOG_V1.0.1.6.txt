@@ -1,0 +1,9 @@
+DSYSTEM SERVER CORE V1.0.1.6 - CORREÇÃO LOGIN USUÁRIOS STUDIO
+
+- Corrige validação de senha dos usuários sincronizados pelo DSYSTEM STUDIO.
+- Mantém exclusão lógica GO -> STUDIO da V1.0.1.5.
+- /api/auth/login e /api/login passam a usar validação flexível compatível com migração.
+- /api/studio/users/sync passa a aceitar password, senha, password_hash, senha_hash, pin e aliases.
+- Senhas em texto são regravadas com PBKDF2 oficial.
+- Hashes legados SHA256/MD5 são aceitos temporariamente para migração.
+- Não altera financeiro, GO, HUB, planos ou RETAIL.

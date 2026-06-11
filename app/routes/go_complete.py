@@ -32,16 +32,20 @@ def _raw(record) -> dict[str, Any]:
 
 
 def _is_deleted_from_payload(data: dict[str, Any], current: bool = False) -> bool:
+    status_value = data.get("sync_status") or data.get("status") or data.get("situacao") or data.get("situação") or ""
+    status_txt = str(status_value).strip().lower()
+    status_txt = status_txt.replace("í", "i").replace("é", "e").replace("ê", "e").replace("á", "a").replace("ã", "a").replace("ç", "c")
+    status_deleted = status_txt in {"cancelado", "cancelada", "cancelled", "canceled", "excluido", "excluida", "deleted", "removido", "removida"}
     if "is_active" in data:
-        return not bool(data.get("is_active"))
+        return (not bool(data.get("is_active"))) or status_deleted
     value = data.get("is_deleted", data.get("deleted", current))
     if isinstance(value, bool):
-        return value
+        return value or status_deleted
     if isinstance(value, (int, float)):
-        return bool(value)
+        return bool(value) or status_deleted
     if isinstance(value, str):
-        return value.strip().lower() in {"1", "true", "sim", "s", "yes", "deleted", "excluido", "excluida"}
-    return bool(value)
+        return value.strip().lower() in {"1", "true", "sim", "s", "yes", "deleted", "excluido", "excluida", "cancelado", "cancelada", "cancelled", "canceled"} or status_deleted
+    return bool(value) or status_deleted
 
 
 def _mark_deleted(record, data: dict[str, Any]):
@@ -52,6 +56,29 @@ def _mark_deleted(record, data: dict[str, Any]):
         record.deleted_at = datetime.now(timezone.utc)
     if not deleted:
         record.deleted_at = None
+        return
+
+    # Contrato oficial GO → API → STUDIO:
+    # exclusão lógica feita no GO deve voltar no pull do Studio como cancelamento.
+    if hasattr(record, "sync_source"):
+        record.sync_source = data.get("source") or data.get("sync_source") or "go_mobile"
+    raw = _raw(record)
+    deleted_at_text = _dt(getattr(record, "deleted_at", None))
+    raw.update(data)
+    raw.update({
+        "deleted": True,
+        "is_deleted": True,
+        "deleted_at": data.get("deleted_at") or deleted_at_text,
+        "status": data.get("status") or "cancelado",
+        "sync_status": data.get("sync_status") or "cancelado",
+        "source": data.get("source") or data.get("sync_source") or "go_mobile",
+        "sync_source": data.get("sync_source") or data.get("source") or "go_mobile",
+        "last_source": data.get("last_source") or data.get("source") or data.get("sync_source") or "go_mobile",
+        "desktop_imported": False,
+        "pending_desktop_pull": True,
+        "imported": False,
+    })
+    record.raw_payload = json.dumps(raw, ensure_ascii=False, default=str)
 
 
 def _client_out(c: Customer) -> dict[str, Any]:
@@ -86,8 +113,10 @@ def _appointment_out(a: Appointment) -> dict[str, Any]:
         "source": a.sync_source or raw.get("source") or "api_local",
         "sync_source": a.sync_source,
         "last_source": raw.get("last_source") or a.sync_source,
-        "sync_status": raw.get("sync_status"),
+        "status": raw.get("status") or a.status or ("cancelado" if a.is_deleted else None),
+        "sync_status": raw.get("sync_status") or ("cancelado" if a.is_deleted else None),
         "desktop_imported": raw.get("desktop_imported", False),
+        "pending_desktop_pull": raw.get("pending_desktop_pull", bool(a.is_deleted and (a.sync_source == "go_mobile"))),
         "client_name": a.customer_name,
         "professional_name": a.professional_name,
         "service_name": a.service_name,
@@ -95,7 +124,6 @@ def _appointment_out(a: Appointment) -> dict[str, Any]:
         "notes": a.notes,
         "start_at": a.start_at,
         "end_at": a.end_at,
-        "status": a.status,
         "deleted": bool(a.is_deleted),
         "is_deleted": bool(a.is_deleted),
         "deleted_at": _dt(a.deleted_at),
@@ -126,8 +154,10 @@ def _transaction_out(t: TransactionRecord) -> dict[str, Any]:
         "source": t.sync_source or raw.get("source") or "api_local",
         "sync_source": t.sync_source,
         "last_source": raw.get("last_source") or t.sync_source,
-        "sync_status": raw.get("sync_status"),
+        "status": raw.get("status") or ("cancelado" if t.is_deleted else None),
+        "sync_status": raw.get("sync_status") or ("cancelado" if t.is_deleted else None),
         "desktop_imported": raw.get("desktop_imported", False),
+        "pending_desktop_pull": raw.get("pending_desktop_pull", bool(t.is_deleted and (t.sync_source == "go_mobile"))),
         "kind": kind,
         "type": kind,
         "tipo": kind,
@@ -315,6 +345,14 @@ def update_client(item_id: int, payload: dict[str, Any], db: Session = Depends(g
     return _client_out(record)
 
 
+@router.delete("/clients/{item_id}")
+def delete_client(item_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    record = _get_record_or_404(db, Customer, item_id, current_user)
+    _mark_deleted(record, {"deleted": True, "source": "go_mobile", "sync_status": "cancelado", "status": "cancelado"})
+    db.commit(); db.refresh(record)
+    return _client_out(record)
+
+
 @router.put("/appointments/{item_id}")
 @router.patch("/appointments/{item_id}")
 def update_appointment(item_id: int, payload: dict[str, Any], db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -329,6 +367,14 @@ def update_appointment(item_id: int, payload: dict[str, Any], db: Session = Depe
     record.sync_source = payload.get("source") or payload.get("sync_source") or record.sync_source
     record.raw_payload = json.dumps({**_raw(record), **payload}, ensure_ascii=False, default=str)
     _mark_deleted(record, payload)
+    db.commit(); db.refresh(record)
+    return _appointment_out(record)
+
+
+@router.delete("/appointments/{item_id}")
+def delete_appointment(item_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    record = _get_record_or_404(db, Appointment, item_id, current_user)
+    _mark_deleted(record, {"deleted": True, "source": "go_mobile", "sync_status": "cancelado", "status": "cancelado"})
     db.commit(); db.refresh(record)
     return _appointment_out(record)
 
@@ -352,6 +398,14 @@ def update_transaction(item_id: int, payload: dict[str, Any], db: Session = Depe
     record.sync_source = payload.get("source") or payload.get("sync_source") or record.sync_source
     record.raw_payload = json.dumps({**_raw(record), **payload}, ensure_ascii=False, default=str)
     _mark_deleted(record, payload)
+    db.commit(); db.refresh(record)
+    return _transaction_out(record)
+
+
+@router.delete("/transactions/{item_id}")
+def delete_transaction(item_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    record = _get_record_or_404(db, TransactionRecord, item_id, current_user)
+    _mark_deleted(record, {"deleted": True, "source": "go_mobile", "sync_status": "cancelado", "status": "cancelado"})
     db.commit(); db.refresh(record)
     return _transaction_out(record)
 
