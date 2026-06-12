@@ -61,6 +61,10 @@ def _extract_studio_password(raw: dict[str, Any]) -> str | None:
     for key in (
         "password", "senha", "pass", "user_password", "api_password",
         "password_hash", "senha_hash", "hash_senha", "pin", "codigo_acesso",
+        "pwd", "passcode", "senha_plain", "plain_password", "password_plain",
+        "senha_usuario", "user_pass", "usuario_senha", "senha_acesso",
+        "senha_app", "senha_go", "senha_mobile", "mobile_password",
+        "api_senha", "ds_password", "ds_senha", "codigo", "cod_acesso",
     ):
         value = raw.get(key)
         if value is not None and str(value).strip() != "":
@@ -79,6 +83,26 @@ def _store_studio_password(value: str) -> str:
         return value
     # Senha em texto: regrava com hash oficial.
     return hash_password(value)
+
+
+
+def _password_scheme_info(value: str | None) -> dict[str, Any]:
+    """Retorna diagnóstico seguro do formato da senha armazenada, sem expor a senha/hash."""
+    if value is None:
+        return {"password_present": False, "password_scheme": "missing", "password_length": 0}
+    text = str(value)
+    if not text:
+        return {"password_present": False, "password_scheme": "empty", "password_length": 0}
+    lowered = text.lower()
+    if text.startswith("pbkdf2_sha256$"):
+        scheme = "pbkdf2_sha256"
+    elif len(lowered) == 64 and all(c in "0123456789abcdef" for c in lowered):
+        scheme = "sha256_hex_legacy"
+    elif len(lowered) == 32 and all(c in "0123456789abcdef" for c in lowered):
+        scheme = "md5_hex_legacy"
+    else:
+        scheme = "plain_or_unknown"
+    return {"password_present": True, "password_scheme": scheme, "password_length": len(text)}
 
 def _default_company(db: Session, slug: str | None = None) -> Company:
     settings = get_settings()
@@ -273,6 +297,7 @@ def debug_login_check(payload: LegacyLoginRequest, db: Session = Depends(get_db)
         "user_found": user is not None,
         "username": payload.username,
         "user_active": bool(user.is_active) if user else False,
+        **(_password_scheme_info(user.password_hash) if user else {"password_present": False, "password_scheme": "user_not_found", "password_length": 0}),
         "password_valid": password_valid,
         "token_generated": token_generated,
         "token_preview": token_preview,
@@ -290,7 +315,7 @@ def legacy_me(current_user: User = Depends(get_current_user)):
 @router.post("/api/studio/users/sync")
 def studio_users_sync(payload: StudioUsersSyncPayload, db: Session = Depends(get_db), current_user: User = Depends(require_master_or_admin)):
     company_id = current_user.company_id
-    stats = {"received": len(payload.users), "created": 0, "updated": 0, "ignored": 0, "errors": 0, "conflicts": []}
+    stats = {"received": len(payload.users), "created": 0, "updated": 0, "ignored": 0, "errors": 0, "password_received": 0, "password_updated": 0, "conflicts": []}
     for raw in payload.users:
         try:
             username = str(_first(raw, "username", "usuario", "login", default="")).strip()
@@ -321,15 +346,21 @@ def studio_users_sync(payload: StudioUsersSyncPayload, db: Session = Depends(get
                     user.external_id = str(external_id)
                 incoming_password = _extract_studio_password(raw)
                 if incoming_password:
+                    stats["password_received"] += 1
                     user.password_hash = _store_studio_password(incoming_password)
+                    user.must_change_password = bool(_first(raw, "must_change_password", default=False))
+                    stats["password_updated"] += 1
                 stats["updated"] += 1
             else:
+                incoming_password = _extract_studio_password(raw)
+                if incoming_password:
+                    stats["password_received"] += 1
                 user = User(
                     company_id=company_id,
                     username=username or f"user_{external_id}",
                     full_name=full_name,
                     email=_first(raw, "email"),
-                    password_hash=_store_studio_password(_extract_studio_password(raw) or "123456"),
+                    password_hash=_store_studio_password(incoming_password or "123456"),
                     role=_core_role(_first(raw, "role", "perfil", default="OPERATOR")),
                     is_active=bool(_first(raw, "is_active", "ativo", default=True)),
                     source=str(_first(raw, "source", default="desktop_sync") or "desktop_sync"),
@@ -337,6 +368,8 @@ def studio_users_sync(payload: StudioUsersSyncPayload, db: Session = Depends(get
                     must_change_password=bool(_first(raw, "must_change_password", default=False)),
                 )
                 db.add(user)
+                if incoming_password:
+                    stats["password_updated"] += 1
                 stats["created"] += 1
         except Exception as exc:
             stats["errors"] += 1

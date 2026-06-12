@@ -51,6 +51,13 @@ class UserAdminUpdate(BaseModel):
     is_active: bool | None = None
 
 
+class UserPasswordResetByUsername(BaseModel):
+    username: str
+    new_password: str
+    company_slug: str = "dsystem-master"
+    must_change_password: bool = False
+
+
 class CompanyProductUpsert(BaseModel):
     company_id: int
     product_code: str
@@ -297,6 +304,37 @@ def admin_update_user(user_id: int, payload: UserAdminUpdate, db: Session = Depe
     db.refresh(user)
     write_audit(db, company_id=user.company_id, user_id=current_user.id, module_code="core", action="ADMIN_UPDATE_USER", description=f"Usuário atualizado: {user.username}")
     return _user_dict(user)
+
+
+
+
+@router.post("/users/reset-password-by-username")
+def admin_reset_user_password_by_username(payload: UserPasswordResetByUsername, db: Session = Depends(get_db), current_user=Depends(require_master_or_admin)):
+    """Atualiza a senha de um usuário pelo company_slug + username.
+
+    Uso emergencial/operacional para migração Studio -> API CORE quando o usuário
+    existe, mas a senha sincronizada anteriormente não confere. Não expõe hash.
+    """
+    company = db.query(Company).filter(Company.slug == payload.company_slug).first()
+    if not company:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Empresa não encontrada")
+    user = db.query(User).filter(User.company_id == company.id, User.username == payload.username).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado nessa empresa")
+    user.password_hash = hash_password(payload.new_password)
+    user.must_change_password = payload.must_change_password
+    user.is_active = True
+    db.commit()
+    db.refresh(user)
+    write_audit(db, company_id=user.company_id, user_id=current_user.id, module_code="core", action="ADMIN_RESET_USER_PASSWORD", description=f"Senha atualizada para usuário: {user.username}")
+    return {
+        "ok": True,
+        "message": "Senha atualizada com sucesso",
+        "company_slug": company.slug,
+        "user": _user_dict(user),
+        "password_scheme": "pbkdf2_sha256",
+        "must_change_password": user.must_change_password,
+    }
 
 
 @router.post("/company-modules")
