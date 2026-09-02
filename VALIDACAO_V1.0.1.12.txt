@@ -1,0 +1,7 @@
+DSYSTEM SERVER CORE V1.0.1.12 - AUTORIDADE AGENDA DS GO
+[OK] Studio não pode sobrescrever enabled.
+[OK] Studio não pode sobrescrever agendamento_online_modo.
+[OK] Studio não pode sobrescrever agendamento_online_horarios_fixos.
+[OK] Primeiro sync Studio nasce desativado se ainda não houver configuração.
+[OK] Demais settings operacionais continuam aceitos do Studio.
+[OK] Public booking e ONLINE-UUID preservados.
