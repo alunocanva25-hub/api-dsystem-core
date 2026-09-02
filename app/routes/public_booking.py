@@ -762,9 +762,17 @@ def public_booking_page(
 ):
     company = _company_by_slug(db, slug)
     record = _config_record(db, company.id)
-    if not record or not record.is_enabled:
-        raise HTTPException(status_code=404, detail="Agenda Online indisponível para esta empresa")
     cfg = _settings(record)
+    if not record or not record.is_enabled:
+        return templates.TemplateResponse(
+            request=request,
+            name="agendamento_publico_fechada.html",
+            context={
+                "cfg": cfg,
+                "company_name": company.name or company.slug,
+            },
+            status_code=200,
+        )
     error_message = None
 
     if request.method == "POST":

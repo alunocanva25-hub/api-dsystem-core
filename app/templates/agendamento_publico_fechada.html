@@ -1,0 +1,72 @@
+{% set brand = (cfg['marca_texto'] if cfg and cfg['marca_texto'] else (cfg['studio_nome'] if cfg and cfg['studio_nome'] else company_name)) %}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Agenda fechada - {{ brand }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+      font-family:Segoe UI,Arial,sans-serif;
+      color:#17243a;
+      background:
+        radial-gradient(circle at 90% 10%, rgba(37,99,235,.13), transparent 34%),
+        linear-gradient(180deg,#f5f8fd 0%,#edf3fb 100%);
+    }
+    .closed-card{
+      width:min(92vw,620px);
+      background:#fff;
+      border:1px solid #dbe5f1;
+      border-radius:28px;
+      padding:38px 30px;
+      text-align:center;
+      box-shadow:0 18px 48px rgba(15,35,70,.12);
+    }
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 13px;
+      border-radius:999px;
+      background:#e9f1ff;
+      color:#174ea6;
+      font-size:12px;
+      font-weight:800;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+    .icon{
+      width:78px;height:78px;
+      margin:24px auto 18px;
+      display:flex;align-items:center;justify-content:center;
+      border-radius:24px;
+      background:linear-gradient(145deg,#0a2358,#1264c4);
+      color:#fff;
+      font-size:34px;
+      box-shadow:0 12px 26px rgba(10,35,88,.20);
+    }
+    h1{margin:0 0 12px;font-size:clamp(30px,7vw,42px);line-height:1.05;color:#0a2358}
+    .company{font-size:17px;font-weight:800;margin:0 0 16px;color:#243b64}
+    p{margin:0 auto;color:#61708a;font-size:16px;line-height:1.6;max-width:480px}
+    .hint{margin-top:22px;padding-top:20px;border-top:1px solid #e8eef6;font-size:14px;color:#7a879c}
+    @media (max-width:520px){.closed-card{padding:32px 22px;border-radius:24px}.icon{width:68px;height:68px;border-radius:21px}}
+  </style>
+</head>
+<body>
+  <main class="closed-card">
+    <div class="badge">DSYSTEM • Agenda Online</div>
+    <div class="icon">⌚</div>
+    <h1>Agenda fechada</h1>
+    <div class="company">{{ brand }}</div>
+    <p>No momento, os agendamentos online estão fechados. Tente novamente mais tarde ou entre em contato diretamente com a empresa.</p>
+    <div class="hint">Assim que a agenda for reaberta, este mesmo link voltará a mostrar os horários disponíveis.</div>
+  </main>
+</body>
+</html>
