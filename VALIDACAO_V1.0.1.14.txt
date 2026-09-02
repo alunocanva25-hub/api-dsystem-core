@@ -1,0 +1,10 @@
+DSYSTEM SERVER CORE V1.0.1.14 - VALIDACAO
+
+OK - app/routes/public_booking.py compila.
+OK - app/main.py e app/core/config.py compilam.
+OK - templates agendamento_publico.html e agendamento_publico_fechada.html possuem sintaxe Jinja válida.
+OK - settings.logo_data_url aceita somente PNG/JPEG/WEBP/GIF em data URL base64, com limite de tamanho.
+OK - página normal exibe logo sincronizada quando disponível.
+OK - página Agenda fechada exibe logo sincronizada no lugar do ícone quando disponível.
+OK - fallback anterior permanece quando não existe logo.
+OK - autoridade DS Go da V1.0.1.12 preservada.
