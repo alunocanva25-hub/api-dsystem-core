@@ -1,0 +1,19 @@
+DSYSTEM SERVER CORE V1.0.0.8_ADMIN_EMPRESAS_USUARIOS
+
+Base preservada: V1.0.0.6_RETAIL_SEGMENTOS_PLANOS_CORRIGIDA.
+
+Novidades:
+- Versão atualizada para 1.0.0.8.
+- Novo grupo de rotas /api/admin para uso futuro do DSYSTEM HUB.
+- Administração de empresas: listar, criar, editar, ativar/inativar.
+- Administração de usuários: listar, criar, editar dados, alterar senha, ativar/inativar.
+- Configuração completa da empresa: /api/admin/companies/{company_id}/config.
+- Vínculo de módulos CORE por empresa: /api/admin/company-modules.
+- Vínculo de produto contratado por empresa: /api/admin/company-products.
+- Vínculo de submódulos por produto: /api/admin/company-product-modules.
+- Consulta administrativa de logs de sync e auditoria.
+- Overview administrativo para o HUB: /api/admin/overview.
+
+Observação:
+- O painel HUB ainda não foi conectado. Esta versão cria as rotas que o HUB consumirá depois.
+- O DSYSTEM RETAIL continua sendo controlado pelo SERVER/HUB: produto, segmento, plano, módulos e settings.

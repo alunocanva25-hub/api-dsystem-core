@@ -1,0 +1,12 @@
+DSYSTEM SERVER CORE V1.0.1.8 - PRESERVAR CÓDIGOS DO STUDIO
+
+Correção focada na compatibilidade de clientes Studio → API CORE.
+
+1. Preserva código/sigla original do cliente vindo do Studio, como STR0000.
+2. Evita substituir código do Studio por CLI-X quando houver código original no payload.
+3. Inclui aliases de retorno para GO e Studio: codigo, sigla, client_code, customer_code e studio_code.
+4. Agendamentos e financeiro passam a reconhecer mais aliases de referência do cliente.
+5. Mantém exclusão lógica GO → Studio.
+6. Mantém correção/diagnóstico de login/senha da V1.0.1.7.
+
+Após subir no Render, definir APP_VERSION=1.0.1.8.

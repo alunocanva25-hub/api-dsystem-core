@@ -1,0 +1,10 @@
+DSYSTEM SERVER CORE V1.0.1.9 - VALIDACAO
+
+[OK] Python compileall
+[OK] FastAPI app.version = 1.0.1.9
+[OK] rota /api/admin/reconcile-client-codes registrada
+[OK] CLI-3 -> STR0000 sem duplicata
+[OK] repoint Agenda CLI-3 -> STR0000
+[OK] repoint Financeiro CLI-3 -> STR0000
+[OK] duplicata CLI-4 + STR0001 consolidada para STR0001 ativo
+[OK] sem alteração obrigatória de schema

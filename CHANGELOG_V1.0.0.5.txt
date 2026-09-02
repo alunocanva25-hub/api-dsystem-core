@@ -1,0 +1,20 @@
+DSYSTEM SERVER CORE V1.0.0.5 - API PADRÃO OFICIAL
+
+Base: V1.0.0.4_LOGIN_MODULOS funcional.
+
+Alterações principais:
+- Versão atualizada para 1.0.0.5.
+- Painel inicial agora mostra company_slug padrão: dsystem-master.
+- Nova rota GET /api/core/official-standards.
+- Nova rota GET /api/core/integration-map.
+- Padronização inicial dos module_codes oficiais.
+- Inclusão oficial dos módulos DSYSTEM AR e DSYSTEM-AR-PAINEL.
+- Inclusão dos módulos CORE, HUB e DSYSTEM VISION na seed inicial.
+- /api/core/overview agora mostra default_login e link para padrões oficiais.
+
+Module codes oficiais desta etapa:
+core, hub, studio, studio_go, dsystem_ar, dsystem_ar_painel, pulselab, vision, bike, pousada, vm, inventario, winthor_tools.
+
+Observação:
+Para bancos já criados em versões anteriores, novos módulos serão inseridos ao executar scripts/init_db.py ou RUN_LOCAL.bat.
+Se quiser testar do zero, use RESETAR_AMBIENTE_LOCAL.bat.

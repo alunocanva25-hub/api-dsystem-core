@@ -1,0 +1,13 @@
+DSYSTEM SERVER CORE V1.0.1.10 - VALIDACAO
+
+[OK] py_compile: public_booking.py, go_compat.py, go_complete.py, sync_service.py, main.py e model.
+[OK] TestClient: login 200.
+[OK] Config Agenda Online por empresa 200.
+[OK] Busca STR0001 isolada entre duas empresas com telefones diferentes.
+[OK] Disponibilidade gerada.
+[OK] Criação ONLINE-UUID 200.
+[OK] Agendamento visível no GET /api/appointments para DS Go.
+[OK] Agendamento visível no pull do Studio com source online_booking.
+[OK] Reenvio do mesmo ONLINE-UUID via Studio resultou UPDATE, não INSERT.
+[OK] Contagem final do external_id = 1.
+[OK] Origem online_booking preservada após update desktop.

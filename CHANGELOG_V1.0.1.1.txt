@@ -1,0 +1,27 @@
+DSYSTEM SERVER CORE V1.0.1.1 - COMPATIBILIDADE GO COMPLETA
+
+Base: V1.0.1.0_COMPATIBILIDADE_GO_API
+
+Ajustes adicionados:
+- Compatibilidade com DS STUDIO GO V4.0.10.4.36.14.
+- Novas tabelas: professionals e services.
+- Novas rotas:
+  GET  /api/professionals
+  POST /api/professionals
+  PUT  /api/professionals/{id}
+  PATCH /api/professionals/{id}
+  GET  /api/services
+  POST /api/services
+  PUT  /api/services/{id}
+  PATCH /api/services/{id}
+  POST /api/clients
+  PUT/PATCH /api/clients/{id}
+  PUT/PATCH /api/appointments/{id}
+  PUT/PATCH /api/transactions/{id}
+  GET /api/go/complete-compatibility-map
+- /api/studio/master-data/sync agora processa clients, professionals e services.
+- Mantida exclusão lógica via deleted/is_deleted/is_active.
+- Mantidos source/sync_source: desktop_sync, go_mobile e api_local.
+
+Observação:
+- Para esta versão, recomenda-se RESETAR_AMBIENTE_LOCAL.bat para criar as novas tabelas.

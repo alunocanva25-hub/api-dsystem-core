@@ -1,0 +1,12 @@
+DSYSTEM SERVER CORE V1.0.1.9 - CONCILIAR CÓDIGOS STUDIO
+
+1. Mantém STRxxxx como código funcional oficial do cliente.
+2. Se o mesmo cliente já existir como CLI-X/API_CLIENT-X/GO_CLIENT-X, o sync migra o registro legado para STRxxxx em vez de criar duplicata.
+3. A conciliação só ocorre com vínculo forte: external_id legado explícito, STR já presente no raw_payload, documento igual, ou nome + e-mail/telefone iguais. Empates não são mesclados automaticamente.
+4. Referências customer_external_id em agendamentos e financeiro são repontadas de CLI-X para STRxxxx.
+5. Se já existirem STRxxxx e CLI-X duplicados, o registro legado é marcado como mesclado/excluído e deixa de aparecer nos GETs normais.
+6. O registro STR preserva legacy_external_id/legacy_external_ids para auditoria.
+7. Nova rota administrativa: POST /api/admin/reconcile-client-codes.
+8. Mantém exclusão lógica, login e demais compatibilidades anteriores.
+
+APP_VERSION=1.0.1.9

@@ -1,0 +1,12 @@
+DSYSTEM SERVER CORE V1.0.1.4 - COMPAT GO FINANCEIRO
+
+Foco exclusivo: compatibilidade financeira do DS STUDIO GO.
+
+Ajustes:
+- GET /api/transactions agora retorna campos financeiros compatíveis: kind/type/tipo/transaction_type.
+- GET /api/transactions agora retorna amount/value/valor/total.
+- Datas compatíveis: occurred_at/date/data/transaction_date.
+- Normalização de entrada/saida para receitas/despesas.
+- Filtro source em clients, appointments e transactions.
+- Rotas de resumo financeiro: /api/transactions/summary e /api/financial/summary.
+- Não altera login, usuários, Studio, HUB, planos ou RETAIL.

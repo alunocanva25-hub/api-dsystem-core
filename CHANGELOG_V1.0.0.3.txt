@@ -1,0 +1,25 @@
+DSYSTEM SERVER CORE V1.0.0.3_SYNC_BASE
+
+Base: V1.0.0.2 funcional
+
+Alterações:
+- Versão atualizada para 1.0.0.3.
+- Criadas tabelas: customers, appointments e transactions.
+- Criada regra anti-duplicidade por company_id + module_code + external_id.
+- Criada exclusão lógica com is_deleted e deleted_at.
+- Criados endpoints:
+  - POST /api/sync/clients
+  - GET /api/clients
+  - POST /api/sync/appointments
+  - GET /api/appointments
+  - POST /api/sync/transactions
+  - GET /api/transactions
+- Rota /api/sync/studio agora processa pacote geral com clientes, agendamentos e financeiro.
+- Logs de sync passam a registrar total_errors.
+- /api/core/overview agora mostra totais de clientes, agendamentos e transações.
+
+Cuidados:
+- Mantido SQLite local para teste rápido.
+- Mantida separação do PostgreSQL no requirements-postgres.txt.
+- Não altera a lógica de login funcional.
+- Recomenda-se resetar o banco local ao sair da V1.0.0.2 para esta versão.

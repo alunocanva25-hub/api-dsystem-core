@@ -1,0 +1,26 @@
+DSYSTEM SERVER CORE V1.0.0.4_LOGIN_MODULOS
+
+Base: V1.0.0.3_SYNC_BASE
+
+Alterações principais:
+- Versão da API atualizada para 1.0.0.4.
+- Login agora retorna contexto completo do usuário.
+- Resposta de login inclui dados da empresa.
+- Resposta de login inclui módulos liberados para a empresa.
+- Resposta de login inclui permissões calculadas por perfil.
+- /api/auth/me agora retorna o mesmo contexto completo.
+- Nova rota GET /api/auth/session para apps recuperarem sessão completa.
+- Nova rota GET /api/auth/validate para validar token e sessão.
+- Nova rota GET /api/my/modules para listar módulos liberados da empresa logada.
+- Novo service module_service.py para centralizar contexto, permissões e módulos.
+
+Mantido:
+- SQLite local para teste rápido.
+- PostgreSQL separado para produção.
+- Sync base de clientes, agendamentos e financeiro.
+- Anti-duplicidade por company_id + module_code + external_id.
+- Exclusão lógica.
+- Logs de sincronização.
+
+Objetivo da versão:
+Preparar a API para o DS STUDIO GO e demais ramificações consumirem login real, empresa, módulos e permissões sem precisar consultar várias rotas manualmente.

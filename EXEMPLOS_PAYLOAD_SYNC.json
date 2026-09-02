@@ -1,0 +1,57 @@
+{
+  "login": {
+    "url": "POST /api/auth/login",
+    "body": {
+      "username": "master",
+      "password": "master123"
+    }
+  },
+  "sync_clients": {
+    "url": "POST /api/sync/clients",
+    "body": {
+      "module_code": "studio",
+      "sync_source": "desktop_sync",
+      "items": [
+        {
+          "external_id": "CLI-1",
+          "name": "Cliente Teste",
+          "phone": "(91) 99999-9999",
+          "email": "cliente@teste.com",
+          "updated_at": "2026-06-06T10:00:00"
+        }
+      ]
+    }
+  },
+  "sync_studio_pacote_geral": {
+    "url": "POST /api/sync/studio",
+    "body": {
+      "module_code": "studio",
+      "sync_source": "desktop_sync",
+      "clients": [
+        {
+          "external_id": "CLI-1",
+          "name": "Cliente Teste"
+        }
+      ],
+      "appointments": [
+        {
+          "external_id": "AGE-1",
+          "customer_external_id": "CLI-1",
+          "customer_name": "Cliente Teste",
+          "service_name": "Serviço Teste",
+          "start_at": "2026-06-06T14:00:00",
+          "status": "AGENDADO"
+        }
+      ],
+      "transactions": [
+        {
+          "external_id": "FIN-1",
+          "transaction_type": "entrada",
+          "description": "Recebimento teste",
+          "amount": 100.0,
+          "transaction_date": "2026-06-06"
+        }
+      ]
+    }
+  }
+}

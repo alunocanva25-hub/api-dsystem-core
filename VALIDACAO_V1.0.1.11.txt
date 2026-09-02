@@ -1,0 +1,10 @@
+DSYSTEM SERVER CORE V1.0.1.11 - AGENDA ONLINE DEPLOY GUARD
+
+VALIDACOES LOCAIS OBRIGATORIAS:
+[ ] compileall sem erro
+[ ] import app.main sem erro
+[ ] /api/core/deploy-info = 200
+[ ] public_booking_router_loaded = true
+[ ] /openapi.json contem /agendamento-publico/{slug}
+[ ] /agendamento-publico existe e responde HTML
+[ ] /agendamento-publico/dsystem-master entra no router (na base limpa pode responder Agenda Online indisponivel)

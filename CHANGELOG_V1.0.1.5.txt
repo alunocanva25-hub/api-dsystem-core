@@ -1,0 +1,21 @@
+DSYSTEM SERVER CORE V1.0.1.5 — EXCLUSÃO LÓGICA GO → STUDIO
+
+Foco:
+- Corrigir contrato de exclusão lógica feita no DS STUDIO GO para o DSYSTEM STUDIO entender como cancelamento.
+
+Ajustes:
+- Quando um registro é excluído pelo GO, a API passa a gravar deleted/is_deleted=true, deleted_at preenchido, status=cancelado e sync_status=cancelado.
+- Registros cancelados pelo GO ficam com source/sync_source/last_source=go_mobile para aparecerem no pull do Studio.
+- Retornos de transações passam a incluir pending_desktop_pull=true e desktop_imported=false quando houver cancelamento pendente.
+- Adicionado DELETE /api/transactions/{id}, DELETE /api/clients/{id} e DELETE /api/appointments/{id}.
+- Pull do Studio preserva cancelados para permitir que o Desktop aplique a exclusão/cancelamento local.
+
+Rotas impactadas:
+- PATCH/PUT/DELETE /api/transactions/{id}
+- PATCH/PUT/DELETE /api/clients/{id}
+- PATCH/PUT/DELETE /api/appointments/{id}
+- GET /api/studio/pull/transactions
+- POST /api/go/transactions
+
+Observação:
+- Não há exclusão física. Tudo permanece como exclusão lógica para sincronização segura.

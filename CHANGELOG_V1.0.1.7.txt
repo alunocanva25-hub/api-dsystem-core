@@ -1,0 +1,19 @@
+DSYSTEM SERVER CORE V1.0.1.7 - SENHA STUDIO / RESET / DIAGNÓSTICO
+
+Objetivo:
+- Corrigir persistência/diagnóstico de senha de usuários sincronizados pelo DSYSTEM STUDIO.
+- Manter exclusão lógica GO -> STUDIO da V1.0.1.5.
+- Manter compatibilidade financeira GO da V1.0.1.4.
+
+Alterações:
+- /api/studio/users/sync agora retorna password_received e password_updated.
+- /api/studio/users/sync aceita mais aliases de senha: senha_go, senha_mobile, senha_acesso, senha_usuario, pwd, passcode, etc.
+- /api/debug/login-check agora retorna diagnóstico seguro do formato da senha armazenada: password_present, password_scheme e password_length.
+- Nova rota administrativa: POST /api/admin/users/reset-password-by-username.
+
+Fluxo recomendado após deploy:
+1. Atualizar APP_VERSION=1.0.1.7 no Render.
+2. Reenviar usuários pelo DSYSTEM STUDIO.
+3. Verificar se o retorno do sync mostra password_received > 0 e password_updated > 0.
+4. Testar /api/debug/login-check.
+5. Se ainda estiver password_valid=false, usar /api/admin/users/reset-password-by-username para acertar a senha do usuário e confirmar o login.

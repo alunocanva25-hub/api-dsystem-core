@@ -1,0 +1,31 @@
+DSYSTEM SERVER CORE V1.0.1.0_COMPATIBILIDADE_GO_API
+
+Base: V1.0.0.9_ADMIN_REFINADO_PLANOS_GLOBAIS.
+
+Objetivo:
+Criar uma camada bridge inicial para compatibilidade com a API atual do DS STUDIO GO V2.0.1.4, permitindo que o DSYSTEM STUDIO e o DS STUDIO GO comecem a apontar para a API CORE com menor retrabalho.
+
+Adicionado:
+- Rota compatível POST /api/login.
+- Rota compatível GET /api/me.
+- Rota compatível GET /health.
+- Rota GET /api/go/compatibility-map.
+- Rota POST /api/studio/users/sync.
+- Rota POST /api/studio/data/sync.
+- Rota POST /api/studio/master-data/sync.
+- Rota POST /api/go/clients.
+- Rota POST /api/go/appointments.
+- Rota POST /api/go/transactions.
+- Rota GET /api/studio/pull/clients.
+- Rota GET /api/studio/pull/appointments.
+- Rota GET /api/studio/pull/transactions.
+
+Mantido:
+- Login oficial /api/auth/login.
+- Empresas, usuários, módulos, produtos, planos globais e segmentos.
+- Sync base da CORE.
+- Planos globais: TRIAL, STARTER, BASIC, PRO, BUSINESS, ENTERPRISE.
+
+Observações:
+- Compatibilidade inicial, não substitui ainda análise do ZIP real do DS STUDIO GO PWA.
+- Recomenda-se resetar o ambiente local para criar as novas colunas de usuários.
