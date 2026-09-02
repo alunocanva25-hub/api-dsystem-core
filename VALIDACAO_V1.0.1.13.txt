@@ -1,0 +1,9 @@
+DSYSTEM SERVER CORE V1.0.1.13 - AGENDA FECHADA
+
+[OK] Base V1.0.1.12 preservada.
+[OK] Autoridade DS Go preservada.
+[OK] Rota HTML /agendamento-publico/{slug} retorna template amigável quando disabled.
+[OK] APIs de dados continuam protegidas quando disabled.
+[OK] Nova página responsiva e sem fundo preto.
+[OK] APP_VERSION padrão 1.0.1.13.
+[OK] BUILD_ID atualizado.
