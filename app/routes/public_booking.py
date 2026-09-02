@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import calendar
 import json
 import re
@@ -32,6 +34,7 @@ PT_MONTHS = [
 DEFAULT_BOOKING_SETTINGS: dict[str, Any] = {
     "studio_nome": "DSYSTEM STUDIO",
     "marca_texto": "DSYSTEM STUDIO",
+    "logo_data_url": "",
     "tema": "claro",
     "horario_inicio": "08:00",
     "horario_fim": "18:00",
@@ -134,6 +137,25 @@ def _normalize_settings(payload: dict[str, Any]) -> dict[str, Any]:
     for key in ("studio_nome", "marca_texto", "tema"):
         if key in cleaned:
             cleaned[key] = str(cleaned[key] or "").strip()[:180]
+
+    # V1.0.1.14: identidade visual sincronizada pelo DSYSTEM STUDIO.
+    # Aceita somente imagens comuns em data URL, com limite para não inflar
+    # excessivamente o payload/banco da CORE.
+    if "logo_data_url" in cleaned:
+        logo = str(cleaned.get("logo_data_url") or "").strip()
+        if not logo:
+            cleaned["logo_data_url"] = ""
+        else:
+            match = re.fullmatch(r"data:image/(png|jpeg|webp|gif);base64,([A-Za-z0-9+/=]+)", logo, re.IGNORECASE)
+            if not match or len(logo) > 2_200_000:
+                cleaned.pop("logo_data_url", None)
+            else:
+                try:
+                    raw = base64.b64decode(match.group(2), validate=True)
+                    if len(raw) > 1_600_000:
+                        cleaned.pop("logo_data_url", None)
+                except (ValueError, binascii.Error):
+                    cleaned.pop("logo_data_url", None)
     return cleaned
 
 

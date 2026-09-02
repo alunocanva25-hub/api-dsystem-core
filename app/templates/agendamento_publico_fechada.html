@@ -52,17 +52,28 @@
       font-size:34px;
       box-shadow:0 12px 26px rgba(10,35,88,.20);
     }
+    .company-logo-wrap{
+      width:108px;height:108px;margin:22px auto 18px;padding:9px;
+      display:flex;align-items:center;justify-content:center;
+      border-radius:26px;background:#fff;border:1px solid #dbe5f1;
+      box-shadow:0 12px 28px rgba(10,35,88,.14);
+    }
+    .company-logo{width:100%;height:100%;object-fit:contain;border-radius:18px}
     h1{margin:0 0 12px;font-size:clamp(30px,7vw,42px);line-height:1.05;color:#0a2358}
     .company{font-size:17px;font-weight:800;margin:0 0 16px;color:#243b64}
     p{margin:0 auto;color:#61708a;font-size:16px;line-height:1.6;max-width:480px}
     .hint{margin-top:22px;padding-top:20px;border-top:1px solid #e8eef6;font-size:14px;color:#7a879c}
-    @media (max-width:520px){.closed-card{padding:32px 22px;border-radius:24px}.icon{width:68px;height:68px;border-radius:21px}}
+    @media (max-width:520px){.closed-card{padding:32px 22px;border-radius:24px}.icon{width:68px;height:68px;border-radius:21px}.company-logo-wrap{width:94px;height:94px;border-radius:23px}}
   </style>
 </head>
 <body>
   <main class="closed-card">
     <div class="badge">DSYSTEM • Agenda Online</div>
+    {% if cfg and cfg['logo_data_url'] %}
+    <div class="company-logo-wrap"><img class="company-logo" src="{{ cfg['logo_data_url'] }}" alt="Logo de {{ brand }}"></div>
+    {% else %}
     <div class="icon">⌚</div>
+    {% endif %}
     <h1>Agenda fechada</h1>
     <div class="company">{{ brand }}</div>
     <p>No momento, os agendamentos online estão fechados. Tente novamente mais tarde ou entre em contato diretamente com a empresa.</p>

@@ -72,6 +72,16 @@
     .hero-kicker, .muted, .tiny-note, .slot-day-hint, .public-top-inline-info span{
       color:var(--pub-muted);
     }
+    .public-brand-line{display:flex;align-items:center;gap:14px;min-width:0}
+    .public-brand-logo{
+      width:72px;height:72px;flex:0 0 72px;object-fit:contain;
+      border-radius:18px;background:#fff;padding:7px;
+      border:1px solid var(--pub-border);box-shadow:var(--pub-shadow-soft);
+    }
+    @media (max-width:640px){
+      .public-brand-line{align-items:flex-start;gap:11px}
+      .public-brand-logo{width:58px;height:58px;flex-basis:58px;border-radius:15px;padding:5px}
+    }
 
     .agenda-shell-topbar{
       background:linear-gradient(135deg, color-mix(in srgb, var(--pub-primary) 10%, var(--pub-card)), color-mix(in srgb, var(--pub-primary-2) 8%, var(--pub-card)));
@@ -285,10 +295,15 @@
   <div class="public-dsystem-wrap public-dsystem-wrap-mobile">
     <section class="public-dsystem-card public-dsystem-card-mobile">
       <div class="public-dsystem-hero public-dsystem-hero-mobile">
-        <div>
-          <div class="hero-kicker">Agendamento online</div>
-          <h1>{{ brand }}</h1>
-          <p>{{ cfg['slogan'] }}</p>
+        <div class="public-brand-line">
+          {% if cfg['logo_data_url'] %}
+          <img class="public-brand-logo" src="{{ cfg['logo_data_url'] }}" alt="Logo de {{ brand }}">
+          {% endif %}
+          <div>
+            <div class="hero-kicker">Agendamento online</div>
+            <h1>{{ brand }}</h1>
+            <p>{{ cfg['slogan'] }}</p>
+          </div>
         </div>
         <div class="hero-pill-group public-pills">
           <span class="hero-pill">Mobile</span>

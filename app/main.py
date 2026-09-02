@@ -43,10 +43,10 @@ app.include_router(network.router)
 app.include_router(public_booking.router)
 
 
-# V1.0.1.13 — página amigável de Agenda fechada + autoridade DS Go preservada.
+# V1.0.1.14 — identidade/logo do Studio na Agenda Online + autoridade DS Go preservada.
 # Ele permite confirmar que o código publicado realmente contém a Agenda Online,
 # mesmo quando APP_VERSION no ambiente foi preenchido manualmente.
-BUILD_ID = "DSYSTEM_SERVER_CORE_V1.0.1.13_AGENDA_FECHADA"
+BUILD_ID = "DSYSTEM_SERVER_CORE_V1.0.1.14_IDENTIDADE_LOGO_AGENDA"
 EXPECTED_PUBLIC_BOOKING_ROUTE = "/agendamento-publico/{slug}"
 
 
