@@ -18,7 +18,7 @@ def main():
         seed_database(db)
     finally:
         db.close()
-    print("DSYSTEM SERVER CORE V1.0.1.11 - banco inicializado com sucesso.")
+    print("DSYSTEM SERVER CORE V1.0.1.12 - banco inicializado com sucesso.")
 
 
 if __name__ == "__main__":

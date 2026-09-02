@@ -46,6 +46,35 @@ DEFAULT_BOOKING_SETTINGS: dict[str, Any] = {
 
 ALLOWED_SETTINGS = set(DEFAULT_BOOKING_SETTINGS)
 
+# Campos cuja autoridade pertence ao DS Go. O endpoint do Studio nunca pode
+# sobrescrevê-los depois que a configuração central existe.
+DS_GO_AUTHORITY_SETTINGS = {
+    "agendamento_online_modo",
+    "agendamento_online_horarios_fixos",
+}
+
+
+def _studio_payload_respecting_ds_go_authority(payload: dict[str, Any], has_existing: bool) -> dict[str, Any]:
+    safe = dict(payload or {})
+    # O Studio não manda no liga/desliga. Se ainda não houver configuração,
+    # nasce desativada até o Master publicar pelo DS Go.
+    safe.pop("enabled", None)
+    if not has_existing:
+        safe["enabled"] = False
+
+    raw_settings = safe.get("settings")
+    if isinstance(raw_settings, dict):
+        settings = dict(raw_settings)
+        for key in DS_GO_AUTHORITY_SETTINGS:
+            settings.pop(key, None)
+        safe["settings"] = settings
+    else:
+        # Compatibilidade com payload legado que envia settings na raiz.
+        for key in DS_GO_AUTHORITY_SETTINGS:
+            safe.pop(key, None)
+    safe["source"] = str(safe.get("source") or "desktop_sync")[:80]
+    return safe
+
 
 def _company_by_slug(db: Session, slug: str) -> Company:
     company = (
@@ -461,7 +490,9 @@ def studio_booking_config_update(payload: dict[str, Any], request: Request, db: 
     company = db.query(Company).filter(Company.id == current_user.company_id).first()
     if not company:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
-    record = _save_config(db, company.id, payload, str(payload.get("source") or "desktop_sync")[:80])
+    existing = _config_record(db, company.id)
+    safe_payload = _studio_payload_respecting_ds_go_authority(payload, has_existing=existing is not None)
+    record = _save_config(db, company.id, safe_payload, str(safe_payload.get("source") or "desktop_sync")[:80])
     return _config_response(request, company, record)
 
 
