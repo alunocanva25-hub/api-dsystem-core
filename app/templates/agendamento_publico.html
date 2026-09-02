@@ -1,0 +1,831 @@
+{% set brand = cfg['marca_texto'] if cfg['marca_texto'] else cfg['studio_nome'] %}
+<!doctype html>
+<html lang="pt-BR" data-theme="{{ cfg['tema'] or 'claro' }}">
+<head>
+  <meta charset="utf-8">
+  <title>Agendamento Online - {{ brand }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="{{ url_for('public_static', path='css/style.css') }}">
+
+  <style>
+    :root{
+      --pub-bg:#f5f7fb;
+      --pub-card:#ffffff;
+      --pub-card-2:#f8fafc;
+      --pub-text:#1f2937;
+      --pub-muted:#6b7280;
+      --pub-border:rgba(15,23,42,.08);
+      --pub-primary:#7c3aed;
+      --pub-primary-2:#a855f7;
+      --pub-success:#22c55e;
+      --pub-warning:#f59e0b;
+      --pub-danger:#ef4444;
+      --pub-off:#cbd5e1;
+      --pub-shadow:0 12px 32px rgba(15,23,42,.10);
+      --pub-shadow-soft:0 8px 22px rgba(15,23,42,.08);
+    }
+    html[data-theme="escuro"], html[data-theme="midnight"], html[data-theme="midnight-dark"], html[data-theme="midnight_blue"], html[data-theme="dark"]{
+      --pub-bg:#0f172a;
+      --pub-card:#111827;
+      --pub-card-2:#0b1220;
+      --pub-text:#f3f4f6;
+      --pub-muted:#cbd5e1;
+      --pub-border:rgba(255,255,255,.08);
+      --pub-primary:#8b5cf6;
+      --pub-primary-2:#c084fc;
+      --pub-success:#34d399;
+      --pub-warning:#fbbf24;
+      --pub-danger:#f87171;
+      --pub-off:#475569;
+      --pub-shadow:0 14px 36px rgba(0,0,0,.35);
+      --pub-shadow-soft:0 10px 26px rgba(0,0,0,.28);
+    }
+    html[data-theme="rose"], html[data-theme="rose-gold"], html[data-theme="rose_gold"]{
+      --pub-bg:#fff7fb;
+      --pub-card:#ffffff;
+      --pub-card-2:#fff1f7;
+      --pub-text:#3f2034;
+      --pub-muted:#81566f;
+      --pub-border:rgba(128,90,109,.12);
+      --pub-primary:#c76a93;
+      --pub-primary-2:#e192b5;
+      --pub-success:#31b37a;
+      --pub-warning:#e6a23c;
+      --pub-danger:#df6b78;
+      --pub-off:#dbc3cf;
+      --pub-shadow:0 12px 32px rgba(153,92,123,.12);
+      --pub-shadow-soft:0 8px 22px rgba(153,92,123,.10);
+    }
+
+    body.public-dsystem-body{
+      background:
+        radial-gradient(circle at top right, color-mix(in srgb, var(--pub-primary) 16%, transparent), transparent 32%),
+        linear-gradient(180deg, color-mix(in srgb, var(--pub-bg) 92%, white), var(--pub-bg));
+      color:var(--pub-text);
+    }
+    .public-dsystem-card, .public-calendar-dialog, .public-agenda-main, .public-agenda-side .card, .public-step-card{
+      background:var(--pub-card);
+      color:var(--pub-text);
+      border:1px solid var(--pub-border);
+      box-shadow:var(--pub-shadow);
+    }
+    .hero-kicker, .muted, .tiny-note, .slot-day-hint, .public-top-inline-info span{
+      color:var(--pub-muted);
+    }
+
+    .agenda-shell-topbar{
+      background:linear-gradient(135deg, color-mix(in srgb, var(--pub-primary) 10%, var(--pub-card)), color-mix(in srgb, var(--pub-primary-2) 8%, var(--pub-card)));
+      border:1px solid var(--pub-border);
+      border-radius:18px;
+      padding:12px 14px;
+      margin-bottom:12px;
+      box-shadow:var(--pub-shadow-soft);
+    }
+    .agenda-nav-controls h3{
+      color:var(--pub-text);
+      font-size:1.05rem;
+      font-weight:800;
+      letter-spacing:.01em;
+      margin:0;
+    }
+    .agenda-grid-head{
+      margin:10px 0 12px;
+      padding:0 2px;
+    }
+    .agenda-grid-head span{
+      color:var(--pub-muted);
+      font-weight:700;
+      font-size:.85rem;
+    }
+
+    .agenda-calendar-grid.compact{
+      display:grid;
+      grid-template-columns:repeat(7,minmax(0,1fr));
+      gap:10px;
+    }
+    .calendar-mobile-hint{display:none}
+    .agenda-day-cell{
+      position:relative;
+      min-height:72px;
+      border-radius:18px;
+      border:1px solid var(--pub-border);
+      background:var(--pub-card-2);
+      color:var(--pub-text);
+      transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease;
+      box-shadow:var(--pub-shadow-soft);
+      overflow:hidden;
+    }
+    .agenda-day-cell:hover:not([disabled]){
+      transform:translateY(-1px);
+      box-shadow:0 14px 26px rgba(0,0,0,.10);
+      border-color:color-mix(in srgb, var(--pub-primary) 35%, var(--pub-border));
+    }
+    .agenda-day-number{
+      position:absolute;
+      top:10px;
+      left:12px;
+      font-size:1rem;
+      font-weight:800;
+    }
+    .agenda-cell-badge{
+      position:absolute;
+      right:10px;
+      top:10px;
+      min-width:24px;
+      height:24px;
+      padding:0 7px;
+      border-radius:999px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:.75rem;
+      font-weight:800;
+      background:color-mix(in srgb, var(--pub-primary) 16%, var(--pub-card));
+      color:var(--pub-text);
+      border:1px solid color-mix(in srgb, var(--pub-primary) 30%, var(--pub-border));
+    }
+    .agenda-day-cell.is-free{ background:linear-gradient(180deg, color-mix(in srgb, var(--pub-success) 9%, var(--pub-card)), var(--pub-card)); }
+    .agenda-day-cell.is-occupied{ background:linear-gradient(180deg, color-mix(in srgb, var(--pub-warning) 10%, var(--pub-card)), var(--pub-card)); }
+    .agenda-day-cell.is-blocked{ background:linear-gradient(180deg, color-mix(in srgb, var(--pub-danger) 14%, var(--pub-card)), var(--pub-card)); opacity:.88; }
+    .agenda-day-cell.is-offday{ background:color-mix(in srgb, var(--pub-off) 18%, var(--pub-card)); color:var(--pub-muted); box-shadow:none; }
+    .agenda-day-cell.is-today{ outline:2px dashed color-mix(in srgb, var(--pub-primary) 60%, transparent); outline-offset:2px; }
+    .agenda-day-cell.is-selected{
+      background:linear-gradient(135deg, var(--pub-primary), var(--pub-primary-2));
+      color:#fff; border-color:transparent;
+      box-shadow:0 16px 30px color-mix(in srgb, var(--pub-primary) 28%, transparent);
+    }
+    .agenda-day-cell.is-selected .agenda-cell-badge{
+      background:rgba(255,255,255,.16); color:#fff; border-color:rgba(255,255,255,.18);
+    }
+    .agenda-cell-stripe{
+      position:absolute; inset:auto -20px 10px auto; width:90px; height:16px;
+      transform:rotate(-35deg); background:rgba(255,255,255,.22);
+    }
+
+    .public-slot-panel{
+      background:linear-gradient(180deg, color-mix(in srgb, var(--pub-primary) 6%, var(--pub-card)), var(--pub-card));
+      border-radius:22px;
+    }
+    .public-slot-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin-top:14px;
+    }
+    .slot-chip{
+      border-radius:16px;
+      border:1px solid var(--pub-border);
+      background:var(--pub-card);
+      color:var(--pub-text);
+      font-weight:700;
+      padding:12px 10px;
+      box-shadow:var(--pub-shadow-soft);
+      transition:all .18s ease;
+    }
+    .slot-chip:hover{
+      border-color:color-mix(in srgb, var(--pub-primary) 35%, var(--pub-border));
+      transform:translateY(-1px);
+    }
+    .slot-chip.is-selected{
+      background:linear-gradient(135deg, var(--pub-primary), var(--pub-primary-2));
+      color:#fff; border-color:transparent;
+    }
+
+    .agenda-legend-box{
+      background:var(--pub-card-2);
+      border:1px solid var(--pub-border);
+      border-radius:16px;
+      padding:12px 14px;
+      box-shadow:var(--pub-shadow-soft);
+    }
+    .agenda-dot.free{ background:var(--pub-success); }
+    .agenda-dot.occupied{ background:var(--pub-warning); }
+    .agenda-dot.blocked{ background:var(--pub-danger); }
+    .agenda-dot.off{ background:var(--pub-off); }
+
+    .summary-chip, .finance-meta-item, .public-top-inline-info{
+      background:var(--pub-card-2);
+      border:1px solid var(--pub-border);
+      color:var(--pub-text);
+    }
+    .btn.btn-outline.small, .overlay-close-btn{
+      border-color:var(--pub-border);
+      background:var(--pub-card);
+      color:var(--pub-text);
+    }
+
+    /* ajuste fino apenas do toggle */
+    .toggle-inline{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      line-height:1.2;
+      margin:0;
+      vertical-align:middle;
+    }
+    .toggle-inline input[type="checkbox"]{
+      width:18px;
+      height:18px;
+      margin:0;
+      accent-color:var(--pub-primary);
+      vertical-align:middle;
+      flex:0 0 auto;
+    }
+    .toggle-inline strong{
+      display:inline-flex;
+      align-items:center;
+      margin:0;
+      color:var(--pub-text);
+    }
+
+    @media (max-width: 860px){
+      .agenda-calendar-grid.compact{ gap:8px; }
+      .agenda-day-cell{ min-height:62px; border-radius:16px; }
+      .agenda-day-number{ top:8px; left:10px; font-size:.95rem; }
+      .agenda-cell-badge{ right:8px; top:8px; }
+      .public-slot-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+    @media (max-width: 640px){
+      .toggle-inline{ gap:8px; }
+      .toggle-inline input[type="checkbox"]{ width:17px; height:17px; }
+      .public-calendar-overlay-head{position:sticky;top:0;z-index:8;padding:4px 2px 8px;background:var(--pub-bg)}
+      .public-calendar-dialog{overflow-y:auto;overscroll-behavior:contain}
+      .public-overlay-layout{display:block}
+      .public-agenda-main.is-inner-card{padding:8px;border-radius:18px}
+      .public-agenda-main .agenda-shell-topbar{margin-bottom:6px;padding:7px 6px;border-radius:14px}
+      .public-agenda-main .agenda-nav-controls{width:100%;display:grid;grid-template-columns:44px 1fr 44px;gap:6px}
+      .public-agenda-main .agenda-nav-controls h3{text-align:center;font-size:.94rem;white-space:nowrap;align-self:center}
+      .public-agenda-main .agenda-nav-controls .btn{width:44px;min-width:44px;height:44px;padding:0;border-radius:13px}
+      .public-agenda-main .agenda-view-controls{display:none}
+      .agenda-calendar-grid.compact{gap:4px}
+      .public-agenda-main .agenda-grid-head{margin:2px 0 5px;padding:0;gap:4px}
+      .public-agenda-main .agenda-grid-head span{font-size:.68rem}
+      .public-agenda-main .agenda-day-cell{min-width:0;min-height:48px;padding:0;border-radius:12px;box-shadow:none;touch-action:manipulation}
+      .public-agenda-main .agenda-day-number{inset:8px auto auto 8px;font-size:.88rem;line-height:1}
+      .public-agenda-main .agenda-cell-badge{right:4px;top:4px;min-width:17px;height:17px;padding:0 4px;font-size:.58rem}
+      .public-agenda-main .agenda-cell-stripe{height:6px;bottom:3px}
+      .public-agenda-main .inline-legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 10px;margin-top:8px;padding:9px 8px;font-size:.72rem}
+      .calendar-mobile-hint{display:block;margin:8px 2px 0;text-align:center;color:var(--pub-muted);font-size:.75rem}
+      .public-agenda-side{margin-top:0}
+      .public-slot-panel{min-height:calc(100dvh - 92px);padding:14px;border-radius:18px}
+      .public-slot-panel .flex-header{align-items:center;gap:10px}
+      .public-slot-panel .flex-header h3{margin:0;font-size:1.08rem}
+      .public-slot-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+      .slot-chip{min-height:48px;padding:10px 6px;border-radius:13px;touch-action:manipulation}
+      .public-slot-actions{position:sticky;bottom:-14px;margin:16px -14px -14px;padding:12px 14px calc(12px + env(safe-area-inset-bottom));background:color-mix(in srgb,var(--pub-card) 94%,transparent);border-top:1px solid var(--pub-border);backdrop-filter:blur(12px)}
+      .public-slot-actions .btn{min-height:48px}
+      .mobile-calendar-hidden{display:none!important}
+      .mobile-slot-back{display:inline-flex!important}
+    }
+    @media (min-width: 641px){.mobile-slot-back{display:none!important}}
+  </style>
+
+</head>
+<body class="public-body public-dsystem-body">
+  <div class="public-dsystem-wrap public-dsystem-wrap-mobile">
+    <section class="public-dsystem-card public-dsystem-card-mobile">
+      <div class="public-dsystem-hero public-dsystem-hero-mobile">
+        <div>
+          <div class="hero-kicker">Agendamento online</div>
+          <h1>{{ brand }}</h1>
+          <p>{{ cfg['slogan'] }}</p>
+        </div>
+        <div class="hero-pill-group public-pills">
+          <span class="hero-pill">Mobile</span>
+          <span class="hero-pill">Horários disponíveis</span>
+          <span class="hero-pill">Calendário DSYSTEM</span>
+        </div>
+      </div>
+
+      {% if error_message %}
+      <div class="flash-wrap public-flash-wrap">
+        <div class="flash error">{{ error_message }}</div>
+      </div>
+      {% endif %}
+
+      <div class="public-top-inline-info">
+        <span><strong>Funcionamento:</strong> {{ dias_funcionamento_label }}</span>
+        <span><strong>Atendimento:</strong> {{ cfg['horario_inicio'] }} — {{ cfg['horario_fim'] }}</span>
+        <span><strong>Pausa:</strong> {{ cfg['tempo_pausa_min'] }} min</span>
+      </div>
+
+      <div class="public-mobile-booking">
+        <form method="post" class="public-mobile-form" id="public_booking_form">
+          <section class="card public-step-card is-active stage-panel" id="step_formulario">
+            <div class="public-step-head">
+              <div>
+                <h3>1. Seus dados</h3>
+                <span class="muted">Preencha os campos para abrir o calendário.</span>
+              </div>
+              <span class="soft-badge">Etapa 1</span>
+            </div>
+            <div class="form-grid public-booking-form mobile-public-grid">
+              <label class="full">
+                <span class="toggle-inline">
+                  <input type="checkbox" id="public_ja_cliente_toggle">
+                  <strong>Já sou cliente</strong>
+                </span>
+                <input type="hidden" name="ja_cliente" id="public_ja_cliente" value="0">
+                <input type="hidden" name="cliente_id" id="public_cliente_id" value="">
+              </label>
+
+              <div class="full" id="public_cliente_search_wrap" hidden>
+                <label>Buscar cliente
+                  <input type="text" id="public_cliente_search" placeholder="Digite código, nome ou whatsapp">
+                </label>
+                <div class="tiny-note">Você pode buscar por código STR, nome ou WhatsApp.</div>
+                <div class="public-client-results" id="public_cliente_results"></div>
+              </div>
+
+              <label>Nome
+                <input type="text" name="nome" id="public_nome" required>
+              </label>
+              <label>Sobrenome
+                <input type="text" name="sobrenome" id="public_sobrenome" required>
+              </label>
+              <input type="hidden" name="cliente_nome" id="public_cliente_nome">
+
+              <label>WhatsApp
+                <input type="text" class="whatsapp-mask" name="whatsapp" id="public_whatsapp" required>
+              </label>
+              <label>Serviço
+                <select name="servico_id" id="public_servico_id" required>
+                  {% for s in servicos %}
+                  <option value="{{ s['id'] }}" data-duracao="{{ s['duracao_min'] }}">{{ s['nome'] }} — R$ {{ '%.2f'|format(s['preco']) }} ({{ s['duracao_min'] }} min)</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <label>Profissional
+                <select name="profissional_id" id="public_profissional_id">
+                  <option value="">Indiferente</option>
+                  {% for p in profissionais %}
+                  <option value="{{ p['id'] }}">{{ p['nome'] }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <div class="full tiny-note" id="public_cliente_hint">Cliente novo: a profissional ficará como <strong>Indiferente</strong> e o cadastro será criado automaticamente no final.</div>
+            </div>
+            <div class="public-step-actions only-right">
+              <button type="button" class="btn btn-primary" id="btn_open_calendar">OK</button>
+            </div>
+          </section>
+
+          <section class="card public-step-card stage-panel" id="step_resumo" hidden>
+            <div class="public-step-head">
+              <div>
+                <h3>3. Confirmar agendamento</h3>
+                <span class="muted">Revise os dados antes de concluir.</span>
+              </div>
+              <span class="soft-badge">Etapa 3</span>
+            </div>
+            <div class="public-confirm-summary" id="public_confirm_summary">
+              <div class="summary-chip"><span>Data</span><strong id="summary_data">--</strong></div>
+              <div class="summary-chip"><span>Horário</span><strong id="summary_hora">--</strong></div>
+              <div class="summary-chip"><span>Serviço</span><strong id="summary_servico">--</strong></div>
+              <div class="summary-chip"><span>Profissional</span><strong id="summary_profissional">Indiferente</strong></div>
+            </div>
+            <div class="form-grid public-booking-form mobile-public-grid">
+              <label class="full">Observação
+                <textarea name="observacoes" id="public_observacoes" rows="3" placeholder="Se quiser, informe algum detalhe importante."></textarea>
+              </label>
+              <label>Data escolhida
+                <input type="text" id="public_data_label" placeholder="Selecione no calendário" readonly>
+                <input type="hidden" name="data" id="public_data" required>
+              </label>
+              <label>Horário escolhido
+                <input type="text" id="public_hora_label" placeholder="Selecione um horário" readonly>
+                <input type="hidden" name="hora" id="public_hora" required>
+              </label>
+              <div class="full slot-preview" id="public_slot_preview">Duração total prevista: --</div>
+            </div>
+            <div class="public-step-actions dual-actions">
+              <button type="button" class="btn btn-outline" id="btn_cancelar_final">Cancelar</button>
+              <button class="btn btn-primary" type="submit">Confirmar agendamento</button>
+            </div>
+          </section>
+        </form>
+      </div>
+    </section>
+  </div>
+
+  <div class="public-calendar-overlay" id="public_calendar_overlay" hidden aria-hidden="true">
+    <div class="public-calendar-dialog card">
+      <div class="public-calendar-overlay-head">
+        <div>
+          <div class="hero-kicker">2. Escolha a data</div>
+          <h3>Selecione o dia e o horário</h3>
+        </div>
+        <button type="button" class="overlay-close-btn" id="btn_close_calendar" aria-label="Fechar calendário">✕</button>
+      </div>
+
+      <div class="public-overlay-layout">
+        <section class="public-agenda-main card is-inner-card" id="public_calendar_panel">
+          <div class="agenda-shell-topbar">
+            <div class="agenda-nav-controls">
+              <button class="btn btn-outline small" type="button" id="public_prev" aria-label="Mês anterior">◀</button>
+              <h3 id="public_month_label">Calendário</h3>
+              <button class="btn btn-outline small" type="button" id="public_next" aria-label="Próximo mês">▶</button>
+            </div>
+            <div class="agenda-view-controls">
+              <button class="btn btn-outline small is-active" type="button">Agenda</button>
+            </div>
+          </div>
+          <div class="agenda-grid-head">
+            <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
+          </div>
+          <div id="public_calendar" class="agenda-calendar-grid compact"></div>
+          <div class="calendar-mobile-hint">Toque em um dia para ver os horários.</div>
+          <div class="agenda-legend-box inline-legend compact-inline-legend public-legend">
+            <div class="agenda-legend-item"><span class="agenda-dot free"></span>Disponível</div>
+            <div class="agenda-legend-item"><span class="agenda-dot occupied"></span>Dia ocupado</div>
+            <div class="agenda-legend-item"><span class="agenda-dot blocked"></span>Dia lotado</div>
+            <div class="agenda-legend-item"><span class="agenda-dot off"></span>Fora do funcionamento</div>
+          </div>
+        </section>
+
+        <aside class="public-agenda-side public-agenda-side-mobile" id="public_slot_panel" hidden>
+          <div class="agenda-day-panel card public-slot-panel">
+            <div class="flex-header">
+              <div>
+                <button type="button" class="btn btn-outline small mobile-slot-back" id="btn_back_to_calendar">← Datas</button>
+                <h3>Horários disponíveis</h3>
+              </div>
+              <span class="muted" id="slot_day_label">Selecione uma data</span>
+            </div>
+            <div id="slot_day_hint" class="muted slot-day-hint">Clique em uma data disponível para ver os horários.</div>
+            <div id="slot_buttons" class="public-slot-grid"></div>
+            <div class="public-step-actions public-slot-actions">
+              <button type="button" class="btn btn-outline" id="btn_cancelar_overlay">Cancelar</button>
+              <button type="button" class="btn btn-primary" id="btn_confirm_slot" disabled>OK</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const calendarData = {{ public_calendar|safe }};
+  const clientSearchUrl = {{ client_search_url|tojson }};
+  const availabilityUrl = {{ availability_url|tojson }};
+  const formatterDay = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
+  const calendarEl = document.getElementById('public_calendar');
+  const monthLabel = document.getElementById('public_month_label');
+  const slotButtons = document.getElementById('slot_buttons');
+  const slotPanel = document.getElementById('public_slot_panel');
+  const calendarPanel = document.getElementById('public_calendar_panel');
+  const slotDayLabel = document.getElementById('slot_day_label');
+  const slotHint = document.getElementById('slot_day_hint');
+  const dataInput = document.getElementById('public_data');
+  const dataLabel = document.getElementById('public_data_label');
+  const horaInput = document.getElementById('public_hora');
+  const horaLabel = document.getElementById('public_hora_label');
+  const servicoSel = document.getElementById('public_servico_id');
+  const profissionalSel = document.getElementById('public_profissional_id');
+  const preview = document.getElementById('public_slot_preview');
+  const pausa = {{ cfg['tempo_pausa_min'] or 0 }};
+  const prevBtn = document.getElementById('public_prev');
+  const nextBtn = document.getElementById('public_next');
+  const form = document.getElementById('public_booking_form');
+  const overlay = document.getElementById('public_calendar_overlay');
+  const btnOpenCalendar = document.getElementById('btn_open_calendar');
+  const btnCloseCalendar = document.getElementById('btn_close_calendar');
+  const btnCancelarOverlay = document.getElementById('btn_cancelar_overlay');
+  const btnConfirmSlot = document.getElementById('btn_confirm_slot');
+  const btnCancelarFinal = document.getElementById('btn_cancelar_final');
+  const btnBackToCalendar = document.getElementById('btn_back_to_calendar');
+  const stepFormulario = document.getElementById('step_formulario');
+  const stepResumo = document.getElementById('step_resumo');
+  const panels = [stepFormulario, stepResumo];
+  const summaryData = document.getElementById('summary_data');
+  const summaryHora = document.getElementById('summary_hora');
+  const summaryServico = document.getElementById('summary_servico');
+  const summaryProfissional = document.getElementById('summary_profissional');
+  const nomeHiddenInput = document.getElementById('public_cliente_nome');
+  const nomeInput = document.getElementById('public_nome');
+  const sobrenomeInput = document.getElementById('public_sobrenome');
+  const whatsappInput = document.getElementById('public_whatsapp');
+  const clienteToggle = document.getElementById('public_ja_cliente_toggle');
+  const clienteToggleHidden = document.getElementById('public_ja_cliente');
+  const clienteIdInput = document.getElementById('public_cliente_id');
+  const clienteSearchWrap = document.getElementById('public_cliente_search_wrap');
+  const clienteSearchInput = document.getElementById('public_cliente_search');
+  const clienteResults = document.getElementById('public_cliente_results');
+  const clienteHint = document.getElementById('public_cliente_hint');
+  let monthIndex = 0;
+  let selectedDate = '';
+  let selectedHour = '';
+  let clienteBuscaTimer = null;
+
+  function formatWhatsAppInput(el){
+    let v=(el.value||'').replace(/\D/g,'').slice(0,13);
+    if(v.length<=10){
+      if(v.length>6){el.value='('+v.slice(0,2)+') '+v.slice(2,6)+'-'+v.slice(6);}else if(v.length>2){el.value='('+v.slice(0,2)+') '+v.slice(2);}else if(v.length>0){el.value='('+v;}else{el.value='';}
+    }else{
+      if(v.length>7){el.value='('+v.slice(0,2)+') '+v.slice(2,7)+'-'+v.slice(7);}else if(v.length>2){el.value='('+v.slice(0,2)+') '+v.slice(2);}else if(v.length>0){el.value='('+v;}else{el.value='';}
+    }
+  }
+
+  document.querySelectorAll('.whatsapp-mask').forEach(function(el){
+    formatWhatsAppInput(el);
+    el.addEventListener('input', function(){ formatWhatsAppInput(el); });
+  });
+
+  function fullName(){
+    return [nomeInput.value.trim(), sobrenomeInput.value.trim()].filter(Boolean).join(' ').trim();
+  }
+
+  function syncClienteNomeHidden(){
+    nomeHiddenInput.value = fullName();
+  }
+
+  function splitName(full){
+    const raw = (full || '').trim();
+    if (!raw) return { nome: '', sobrenome: '' };
+    const parts = raw.split(/\s+/);
+    return { nome: parts.shift() || '', sobrenome: parts.join(' ') };
+  }
+
+  function applyClienteMode(){
+    const isCliente = !!clienteToggle.checked;
+    clienteToggleHidden.value = isCliente ? '1' : '0';
+    clienteSearchWrap.hidden = !isCliente;
+    clienteSearchInput.required = false;
+    if (!isCliente) {
+      clienteIdInput.value = '';
+      clienteResults.innerHTML = '';
+      nomeInput.readOnly = false;
+      sobrenomeInput.readOnly = false;
+      whatsappInput.readOnly = false;
+      profissionalSel.value = '';
+      profissionalSel.disabled = true;
+      clienteHint.innerHTML = 'Cliente novo: a profissional ficará como <strong>Indiferente</strong> e o cadastro será criado automaticamente no final.';
+    } else {
+      profissionalSel.disabled = false;
+      clienteHint.textContent = 'Cliente já cadastrado: busque por código, nome ou WhatsApp e escolha a profissional normalmente.';
+    }
+    syncClienteNomeHidden();
+    updatePreview();
+  }
+
+  function renderClienteResults(items){
+    if (!items || !items.length) {
+      clienteResults.innerHTML = '<div class="tiny-note">Nenhum cliente encontrado. Desative “Já sou cliente” para cadastrar como novo.</div>';
+      return;
+    }
+    clienteResults.innerHTML = items.map(item => `
+      <button type="button" class="slot-chip" data-cliente-id="${item.client_ref || item.external_id || item.id}" data-cliente-nome="${item.nome}" data-cliente-sigla="${item.sigla}" data-cliente-whatsapp="${item.whatsapp || item.whatsapp_masked || ''}">
+        ${item.sigla || 'STR'} · ${item.nome}
+      </button>
+    `).join('');
+    clienteResults.querySelectorAll('button').forEach(btn => btn.addEventListener('click', function(){
+      const nomePartes = splitName(btn.dataset.clienteNome || '');
+      clienteIdInput.value = btn.dataset.clienteId || '';
+      nomeInput.value = nomePartes.nome;
+      sobrenomeInput.value = nomePartes.sobrenome;
+      whatsappInput.value = btn.dataset.clienteWhatsapp || '';
+      formatWhatsAppInput(whatsappInput);
+      nomeInput.readOnly = true;
+      sobrenomeInput.readOnly = true;
+      whatsappInput.readOnly = true;
+      syncClienteNomeHidden();
+      clienteResults.innerHTML = `<div class="tiny-note"><strong>${btn.dataset.clienteSigla || 'STR'}</strong> — cliente selecionado.</div>`;
+      updatePreview();
+    }));
+  }
+
+  async function buscarCliente(){
+    const q = (clienteSearchInput.value || '').trim();
+    if (!clienteToggle.checked || q.length < 2) {
+      clienteResults.innerHTML = '';
+      return;
+    }
+    clienteResults.innerHTML = '<div class="tiny-note">Buscando cliente...</div>';
+    try {
+      const resp = await fetch(clientSearchUrl + '?q=' + encodeURIComponent(q), { headers: { 'X-Requested-With': 'fetch' } });
+      const payload = await resp.json();
+      renderClienteResults(payload.items || []);
+    } catch (err) {
+      clienteResults.innerHTML = '<div class="tiny-note">Não foi possível buscar clientes agora.</div>';
+    }
+  }
+
+  clienteToggle.addEventListener('change', applyClienteMode);
+  clienteSearchInput.addEventListener('input', function(){
+    nomeInput.readOnly = false;
+    sobrenomeInput.readOnly = false;
+    whatsappInput.readOnly = false;
+    clienteIdInput.value = '';
+    if (clienteBuscaTimer) clearTimeout(clienteBuscaTimer);
+    clienteBuscaTimer = setTimeout(buscarCliente, 300);
+  });
+  nomeInput.addEventListener('input', syncClienteNomeHidden);
+  sobrenomeInput.addEventListener('input', syncClienteNomeHidden);
+  applyClienteMode();
+
+  function updatePreview(){
+    const opt = servicoSel.options[servicoSel.selectedIndex];
+    const dur = parseInt(opt?.dataset?.duracao || '0', 10);
+    preview.textContent = 'Duração total prevista: ' + (dur + pausa) + ' min (' + dur + ' min do serviço + ' + pausa + ' min de pausa)';
+    summaryServico.textContent = opt ? opt.textContent.split(' — ')[0] : '--';
+    const profOpt = profissionalSel.options[profissionalSel.selectedIndex];
+    summaryProfissional.textContent = profOpt && profOpt.value ? profOpt.textContent : 'Indiferente';
+  }
+
+  function paintSelectedSlot(){
+    slotButtons.querySelectorAll('button').forEach(btn => btn.classList.toggle('is-selected', btn.dataset.hora === selectedHour));
+    btnConfirmSlot.disabled = !selectedHour;
+  }
+
+  function setStage(target){
+    panels.forEach(panel => {
+      const active = panel === target;
+      panel.hidden = !active;
+      panel.classList.toggle('is-active', active);
+    });
+  }
+
+  function openOverlay(){
+    overlay.hidden = false;
+    slotPanel.hidden = true;
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('overlay-open');
+    requestAnimationFrame(() => btnCloseCalendar.focus());
+  }
+
+  function closeOverlay(){
+    overlay.hidden = true;
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('overlay-open');
+    calendarPanel.classList.remove('mobile-calendar-hidden');
+  }
+
+  function activateSummaryStep(){
+    setStage(stepResumo);
+    summaryData.textContent = dataLabel.value || '--';
+    summaryHora.textContent = horaLabel.value || '--';
+  }
+
+  function resetSummaryStep(){
+    setStage(stepFormulario);
+    selectedHour = '';
+    horaInput.value = '';
+    horaLabel.value = '';
+    summaryHora.textContent = '--';
+    btnConfirmSlot.disabled = true;
+    slotButtons.innerHTML = '';
+    slotDayLabel.textContent = 'Selecione uma data';
+    slotHint.textContent = 'Clique em uma data disponível para ver os horários.';
+    slotPanel.hidden = true;
+    calendarPanel.classList.remove('mobile-calendar-hidden');
+  }
+
+  async function loadSlots(dateStr){
+    selectedDate = dateStr;
+    selectedHour = '';
+    horaInput.value = '';
+    horaLabel.value = '';
+    dataInput.value = dateStr;
+    dataLabel.value = dateStr.split('-').reverse().join('/');
+    summaryData.textContent = dataLabel.value;
+    const dt = new Date(dateStr + 'T12:00:00');
+    slotDayLabel.textContent = formatterDay.format(dt);
+    slotHint.textContent = 'Carregando horários...';
+    slotButtons.innerHTML = '';
+    btnConfirmSlot.disabled = true;
+    const params = new URLSearchParams({ data: dateStr, servico_id: servicoSel.value, profissional_id: profissionalSel.value || '' });
+    slotPanel.hidden = false;
+    if (window.innerWidth <= 640) {
+      calendarPanel.classList.add('mobile-calendar-hidden');
+      overlay.querySelector('.public-calendar-dialog').scrollTop = 0;
+    }
+    try {
+      const resp = await fetch(availabilityUrl + '?' + params.toString(), { headers: { 'X-Requested-With': 'fetch' } });
+      const payload = await resp.json();
+      if (!payload.funcionamento) {
+        slotHint.textContent = 'Essa data está fora dos dias de funcionamento.';
+        return;
+      }
+      if (!payload.horarios || !payload.horarios.length) {
+        slotHint.textContent = payload.lotado ? 'Essa data atingiu o limite máximo de agendamentos.' : 'Nenhum horário disponível para esta data.';
+        return;
+      }
+      slotHint.textContent = 'Toque em um horário disponível abaixo.';
+      slotButtons.innerHTML = payload.horarios.map(h => `<button type="button" class="slot-chip" data-hora="${h}">${h}</button>`).join('');
+      slotButtons.querySelectorAll('button').forEach(btn => btn.addEventListener('click', function(){
+        selectedHour = btn.dataset.hora;
+        horaInput.value = selectedHour;
+        horaLabel.value = selectedHour;
+        summaryHora.textContent = selectedHour;
+        paintSelectedSlot();
+        if (window.innerWidth <= 860) { btnConfirmSlot.scrollIntoView({behavior:'smooth', block:'nearest'}); }
+      }));
+    } catch (err) {
+      slotHint.textContent = 'Não foi possível carregar os horários agora.';
+    }
+  }
+
+  function renderCalendar(){
+    const month = calendarData[monthIndex] || calendarData[0];
+    if (!month) return;
+    monthLabel.textContent = month.label;
+    calendarEl.innerHTML = '';
+    month.weeks.forEach(week => {
+      week.forEach(cell => {
+        if (!cell) {
+          calendarEl.insertAdjacentHTML('beforeend', '<div class="agenda-day-cell is-empty"></div>');
+          return;
+        }
+        const cls = ['agenda-day-cell'];
+        if (cell.status === 'busy') cls.push('is-occupied');
+        else if (cell.status === 'full') cls.push('is-blocked');
+        else if (cell.status === 'off' || cell.status === 'past') cls.push('is-offday');
+        else cls.push('is-free');
+        if (cell.is_today) cls.push('is-today');
+        if (cell.date === selectedDate) cls.push('is-selected');
+        const disabled = (cell.status === 'off' || cell.status === 'past');
+        const badge = cell.count > 0 ? `<span class="agenda-cell-badge">${cell.count}</span>` : '';
+        const stripe = cell.status === 'full' ? '<span class="agenda-cell-stripe"></span>' : '';
+        const dateLabel = cell.date.split('-').reverse().join('/');
+        const statusLabel = cell.status === 'full' ? 'lotado' : (cell.status === 'off' ? 'fora do funcionamento' : (cell.status === 'past' ? 'data passada' : 'disponível'));
+        calendarEl.insertAdjacentHTML('beforeend', `<button type="button" class="${cls.join(' ')}" data-date="${cell.date}" aria-label="${dateLabel}, ${statusLabel}" ${disabled ? 'disabled' : ''}><span class="agenda-day-number">${cell.day}</span>${badge}${stripe}</button>`);
+      });
+    });
+    calendarEl.querySelectorAll('.agenda-day-cell[data-date]:not([disabled])').forEach(btn => btn.addEventListener('click', function(){
+      calendarEl.querySelectorAll('.agenda-day-cell.is-selected').forEach(el => el.classList.remove('is-selected'));
+      btn.classList.add('is-selected');
+      loadSlots(btn.dataset.date);
+    }));
+    prevBtn.disabled = monthIndex <= 0;
+    nextBtn.disabled = monthIndex >= calendarData.length - 1;
+  }
+
+  function validateStepOne(){
+    syncClienteNomeHidden();
+    if (clienteToggle.checked && !clienteIdInput.value) {
+      window.alert('Busque e selecione seu cadastro ou desative “Já sou cliente” para continuar como novo cliente.');
+      return false;
+    }
+    if (!nomeInput.value.trim() || !whatsappInput.value.trim() || !servicoSel.value) {
+      window.alert('Preencha nome, WhatsApp e serviço para continuar.');
+      return false;
+    }
+    return true;
+  }
+
+  btnOpenCalendar.addEventListener('click', function(){
+    if (!validateStepOne()) return;
+    updatePreview();
+    openOverlay();
+    renderCalendar();
+  });
+
+  btnCloseCalendar.addEventListener('click', closeOverlay);
+  btnCancelarOverlay.addEventListener('click', closeOverlay);
+  btnBackToCalendar.addEventListener('click', function(){
+    slotPanel.hidden = true;
+    calendarPanel.classList.remove('mobile-calendar-hidden');
+    overlay.querySelector('.public-calendar-dialog').scrollTop = 0;
+  });
+  btnConfirmSlot.addEventListener('click', function(){
+    if (!selectedDate || !selectedHour) return;
+    closeOverlay();
+    activateSummaryStep();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+  btnCancelarFinal.addEventListener('click', function(){
+    resetSummaryStep();
+    closeOverlay();
+    dataInput.value = '';
+    dataLabel.value = '';
+    summaryData.textContent = '--';
+    selectedDate = '';
+  });
+
+  prevBtn.addEventListener('click', function(){ if (monthIndex > 0) { monthIndex -= 1; renderCalendar(); } });
+  nextBtn.addEventListener('click', function(){ if (monthIndex < calendarData.length - 1) { monthIndex += 1; renderCalendar(); } });
+  servicoSel.addEventListener('change', function(){ updatePreview(); if (selectedDate) loadSlots(selectedDate); });
+  profissionalSel.addEventListener('change', function(){ updatePreview(); if (selectedDate) loadSlots(selectedDate); });
+  form.addEventListener('submit', function(ev){
+    syncClienteNomeHidden();
+    if (!validateStepOne() || !dataInput.value || !horaInput.value) {
+      ev.preventDefault();
+      window.alert('Preencha os dados, escolha a data e selecione um horário antes de confirmar.');
+    }
+  });
+
+  overlay.addEventListener('click', function(ev){
+    if (ev.target === overlay) closeOverlay();
+  });
+  document.addEventListener('keydown', function(ev){
+    if (ev.key === 'Escape' && !overlay.hidden) closeOverlay();
+  });
+
+  updatePreview();
+  setStage(stepFormulario);
+  renderCalendar();
+})();
+</script>
+</body>
+</html>
