@@ -1,0 +1,13 @@
+DSYSTEM SERVER CORE V1.0.1.15 - VALIDACAO
+
+- compileall app/scripts: OK
+- import da aplicacao: OK
+- rota POST /api/booking/temporary-links: OK
+- rota /agendamento-publico/{slug}/t/{token}: OK
+- geracao de token individual: OK
+- token armazenado por hash SHA-256: OK
+- cliente vinculado ao link: OK
+- agendamento pelo link temporario: OK
+- segundo uso apos sucesso: bloqueado / Link encerrado
+- filtro de meses: OK
+- pagina publica normal preservada: OK
