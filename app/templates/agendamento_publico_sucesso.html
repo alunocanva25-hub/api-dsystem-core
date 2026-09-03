@@ -1,1 +1,21 @@
-<!doctype html><html lang="pt-BR" data-theme="{{ theme or 'claro' }}"><head><meta charset="utf-8"><title>Agendamento realizado</title><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="{{ url_for('public_static', path='css/style.css') }}"></head><body class="public-body"><div class="public-card centered"><h1>Agendamento realizado com sucesso</h1><p>Seu horário foi registrado na Agenda Online DSYSTEM.</p>{% if appointment_code %}<p class="muted">Código: <strong>{{ appointment_code }}</strong></p>{% endif %}<a class="btn btn-primary" href="{{ new_booking_url }}">Novo agendamento</a></div></body></html>
+<!doctype html>
+<html lang="pt-BR" data-theme="{{ theme or 'claro' }}">
+<head>
+  <meta charset="utf-8">
+  <title>Agendamento realizado</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="{{ url_for('public_static', path='css/style.css') }}">
+</head>
+<body class="public-body">
+  <div class="public-card centered">
+    <h1>Agendamento realizado com sucesso</h1>
+    <p>Seu horário foi registrado na Agenda Online DSYSTEM.</p>
+    {% if appointment_code %}<p class="muted">Código: <strong>{{ appointment_code }}</strong></p>{% endif %}
+    {% if single_use_completed %}
+      <p class="muted">Este link temporário era de uso único e foi encerrado após a confirmação deste agendamento.</p>
+    {% elif new_booking_url %}
+      <a class="btn btn-primary" href="{{ new_booking_url }}">Novo agendamento</a>
+    {% endif %}
+  </div>
+</body>
+</html>

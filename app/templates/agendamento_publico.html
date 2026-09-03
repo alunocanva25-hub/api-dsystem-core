@@ -309,6 +309,7 @@
           <span class="hero-pill">Mobile</span>
           <span class="hero-pill">Horários disponíveis</span>
           <span class="hero-pill">Calendário DSYSTEM</span>
+          {% if temporary_mode %}<span class="hero-pill">Link individual • 1 uso</span>{% endif %}
         </div>
       </div>
 
@@ -335,14 +336,18 @@
               <span class="soft-badge">Etapa 1</span>
             </div>
             <div class="form-grid public-booking-form mobile-public-grid">
-              <label class="full">
+              <label class="full" {% if temporary_mode %}hidden{% endif %}>
                 <span class="toggle-inline">
-                  <input type="checkbox" id="public_ja_cliente_toggle">
+                  <input type="checkbox" id="public_ja_cliente_toggle" {% if temporary_mode %}checked{% endif %}>
                   <strong>Já sou cliente</strong>
                 </span>
-                <input type="hidden" name="ja_cliente" id="public_ja_cliente" value="0">
-                <input type="hidden" name="cliente_id" id="public_cliente_id" value="">
+                <input type="hidden" name="ja_cliente" id="public_ja_cliente" value="{% if temporary_mode %}1{% else %}0{% endif %}">
+                <input type="hidden" name="cliente_id" id="public_cliente_id" value="{{ temporary_client['external_id'] if temporary_mode else '' }}">
               </label>
+
+              {% if temporary_mode %}
+              <div class="full tiny-note"><strong>Link individual:</strong> este link pertence a {{ temporary_client['name'] }} e será encerrado depois que um agendamento for confirmado.</div>
+              {% endif %}
 
               <div class="full" id="public_cliente_search_wrap" hidden>
                 <label>Buscar cliente
@@ -352,16 +357,17 @@
                 <div class="public-client-results" id="public_cliente_results"></div>
               </div>
 
+              {% set temp_parts = temporary_client['name'].split(' ', 1) if temporary_mode else ['', ''] %}
               <label>Nome
-                <input type="text" name="nome" id="public_nome" required>
+                <input type="text" name="nome" id="public_nome" value="{{ temp_parts[0] if temporary_mode else '' }}" {% if temporary_mode %}readonly{% endif %} required>
               </label>
               <label>Sobrenome
-                <input type="text" name="sobrenome" id="public_sobrenome" required>
+                <input type="text" name="sobrenome" id="public_sobrenome" value="{{ temp_parts[1] if temporary_mode and temp_parts|length > 1 else '' }}" {% if temporary_mode %}readonly{% endif %} required>
               </label>
-              <input type="hidden" name="cliente_nome" id="public_cliente_nome">
+              <input type="hidden" name="cliente_nome" id="public_cliente_nome" value="{{ temporary_client['name'] if temporary_mode else '' }}">
 
               <label>WhatsApp
-                <input type="text" class="whatsapp-mask" name="whatsapp" id="public_whatsapp" required>
+                <input type="text" class="whatsapp-mask" name="whatsapp" id="public_whatsapp" value="{{ temporary_client['phone'] if temporary_mode else '' }}" {% if temporary_mode %}readonly{% endif %} required>
               </label>
               <label>Serviço
                 <select name="servico_id" id="public_servico_id" required>
@@ -482,6 +488,7 @@
 <script>
 (function(){
   const calendarData = {{ public_calendar|safe }};
+  const temporaryMode = {{ (temporary_mode or false)|tojson }};
   const clientSearchUrl = {{ client_search_url|tojson }};
   const availabilityUrl = {{ availability_url|tojson }};
   const formatterDay = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
@@ -563,6 +570,20 @@
   }
 
   function applyClienteMode(){
+    if (temporaryMode) {
+      clienteToggle.checked = true;
+      clienteToggleHidden.value = '1';
+      clienteSearchWrap.hidden = true;
+      clienteSearchInput.required = false;
+      nomeInput.readOnly = true;
+      sobrenomeInput.readOnly = true;
+      whatsappInput.readOnly = true;
+      profissionalSel.disabled = false;
+      clienteHint.textContent = 'Link individual de uso único: escolha o serviço, profissional, data e horário.';
+      syncClienteNomeHidden();
+      updatePreview();
+      return;
+    }
     const isCliente = !!clienteToggle.checked;
     clienteToggleHidden.value = isCliente ? '1' : '0';
     clienteSearchWrap.hidden = !isCliente;
@@ -628,6 +649,7 @@
 
   clienteToggle.addEventListener('change', applyClienteMode);
   clienteSearchInput.addEventListener('input', function(){
+    if (temporaryMode) return;
     nomeInput.readOnly = false;
     sobrenomeInput.readOnly = false;
     whatsappInput.readOnly = false;

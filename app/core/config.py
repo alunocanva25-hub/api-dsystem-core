@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "DSYSTEM SERVER CORE"
-    app_version: str = "1.0.1.14"
+    app_version: str = "1.0.1.15"
     environment: str = "development"
     secret_key: str = "troque-esta-chave-em-producao"
     access_token_expire_minutes: int = 1440

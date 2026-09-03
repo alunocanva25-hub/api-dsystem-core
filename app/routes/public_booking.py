@@ -5,6 +5,8 @@ import binascii
 import calendar
 import json
 import re
+import secrets
+import hashlib
 import uuid
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -19,7 +21,7 @@ from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.business import Appointment, Customer, Professional, ServiceCatalog
 from app.models.company import Company
-from app.models.public_booking import PublicBookingConfig
+from app.models.public_booking import PublicBookingConfig, SingleUseBookingLink
 from app.models.user import User
 from app.routes.deps import get_current_user
 
@@ -45,6 +47,8 @@ DEFAULT_BOOKING_SETTINGS: dict[str, Any] = {
     "mostrar_selo": False,
     "agendamento_online_modo": "flexivel",
     "agendamento_online_horarios_fixos": "08:00,10:00,14:00,16:00",
+    "agendamento_online_meses_modo": "todos",
+    "agendamento_online_meses": "1,2,3,4,5,6,7,8,9,10,11,12",
 }
 
 ALLOWED_SETTINGS = set(DEFAULT_BOOKING_SETTINGS)
@@ -54,6 +58,8 @@ ALLOWED_SETTINGS = set(DEFAULT_BOOKING_SETTINGS)
 DS_GO_AUTHORITY_SETTINGS = {
     "agendamento_online_modo",
     "agendamento_online_horarios_fixos",
+    "agendamento_online_meses_modo",
+    "agendamento_online_meses",
 }
 
 
@@ -126,6 +132,13 @@ def _normalize_settings(payload: dict[str, Any]) -> dict[str, Any]:
 
     if "agendamento_online_horarios_fixos" in cleaned:
         cleaned["agendamento_online_horarios_fixos"] = ",".join(_normalize_fixed_times(cleaned["agendamento_online_horarios_fixos"]))
+
+    if "agendamento_online_meses_modo" in cleaned:
+        mode = str(cleaned.get("agendamento_online_meses_modo") or "todos").strip().lower()
+        cleaned["agendamento_online_meses_modo"] = mode if mode in {"todos", "um", "personalizado"} else "todos"
+
+    if "agendamento_online_meses" in cleaned:
+        cleaned["agendamento_online_meses"] = _normalize_booking_months(cleaned.get("agendamento_online_meses"))
 
     for key in ("horario_inicio", "horario_fim"):
         if key in cleaned:
@@ -207,6 +220,47 @@ def _normalize_fixed_times(raw: Any) -> list[str]:
         if value not in result:
             result.append(value)
     return sorted(result)
+
+
+def _normalize_booking_months(raw: Any) -> str:
+    if isinstance(raw, (list, tuple, set)):
+        parts = list(raw)
+    else:
+        parts = str(raw or "").replace(";", ",").replace("\n", ",").split(",")
+    values: list[int] = []
+    for part in parts:
+        try:
+            value = int(str(part).strip())
+        except Exception:
+            continue
+        if 1 <= value <= 12 and value not in values:
+            values.append(value)
+    values.sort()
+    return ",".join(str(v) for v in values)
+
+
+def _allowed_booking_months(cfg: dict[str, Any]) -> set[int]:
+    mode = str(cfg.get("agendamento_online_meses_modo") or "todos").strip().lower()
+    if mode == "todos":
+        return set(range(1, 13))
+    raw = _normalize_booking_months(cfg.get("agendamento_online_meses"))
+    values = {int(x) for x in raw.split(",") if x}
+    if not values:
+        return set(range(1, 13))
+    if mode == "um":
+        return {min(values)}
+    return values
+
+
+def _calendar_month_bases(cfg: dict[str, Any], horizon_months: int = 12) -> list[date]:
+    ref = date.today()
+    allowed = _allowed_booking_months(cfg)
+    result: list[date] = []
+    for offset in range(max(1, horizon_months)):
+        base = date(ref.year + ((ref.month - 1 + offset) // 12), ((ref.month - 1 + offset) % 12) + 1, 1)
+        if base.month in allowed:
+            result.append(base)
+    return result
 
 
 def _parse_iso_dt(value: Any) -> datetime | None:
@@ -310,7 +364,12 @@ def _available_slots(
         selected_day = datetime.strptime(day_iso, "%Y-%m-%d").date()
     except Exception:
         return []
-    if selected_day < date.today() or not _is_work_day(day_iso, cfg) or _day_full(db, company_id, day_iso, cfg):
+    if (
+        selected_day < date.today()
+        or selected_day.month not in _allowed_booking_months(cfg)
+        or not _is_work_day(day_iso, cfg)
+        or _day_full(db, company_id, day_iso, cfg)
+    ):
         return []
 
     duration = int(service.duration_minutes or 60)
@@ -351,13 +410,11 @@ def _available_slots(
     return slots
 
 
-def _calendar_data(db: Session, company_id: int, cfg: dict[str, Any], months: int = 3) -> list[dict[str, Any]]:
-    ref = date.today()
+def _calendar_data(db: Session, company_id: int, cfg: dict[str, Any], months: int = 12) -> list[dict[str, Any]]:
     today = date.today()
     cal = calendar.Calendar(firstweekday=6)
     result: list[dict[str, Any]] = []
-    for offset in range(months):
-        base = date(ref.year + ((ref.month - 1 + offset) // 12), ((ref.month - 1 + offset) % 12) + 1, 1)
+    for base in _calendar_month_bases(cfg, horizon_months=months):
         year, month = base.year, base.month
         counts: dict[str, int] = {}
         rows = (
@@ -490,6 +547,39 @@ def _config_response(request: Request, company: Company, record: PublicBookingCo
     }
 
 
+def _single_use_token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _single_use_url(request: Request, slug: str, token: str) -> str:
+    return f"{_public_base(request)}/{slug}/t/{token}"
+
+
+def _single_use_link_by_token(db: Session, company_id: int, token: str) -> SingleUseBookingLink | None:
+    token_hash = _single_use_token_hash(token)
+    return (
+        db.query(SingleUseBookingLink)
+        .filter(
+            SingleUseBookingLink.company_id == company_id,
+            SingleUseBookingLink.token_hash == token_hash,
+            SingleUseBookingLink.is_active == True,  # noqa: E712
+        )
+        .first()
+    )
+
+
+def _single_use_client(db: Session, company_id: int, link: SingleUseBookingLink) -> Customer | None:
+    return (
+        db.query(Customer)
+        .filter(
+            Customer.company_id == company_id,
+            Customer.external_id == link.customer_external_id,
+            Customer.is_deleted == False,  # noqa: E712
+        )
+        .first()
+    )
+
+
 @router.get("/api/booking/config")
 def booking_config_me(request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     company = db.query(Company).filter(Company.id == current_user.company_id).first()
@@ -505,6 +595,57 @@ def booking_config_update(payload: dict[str, Any], request: Request, db: Session
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
     record = _save_config(db, company.id, payload, str(payload.get("source") or "ds_go")[:80])
     return _config_response(request, company, record)
+
+
+@router.post("/api/booking/temporary-links")
+def create_temporary_booking_link(payload: dict[str, Any], request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    company = db.query(Company).filter(Company.id == current_user.company_id).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+    record = _config_record(db, company.id)
+    if not record or not record.is_enabled:
+        raise HTTPException(status_code=409, detail="A Agenda Online está desativada. Ative antes de gerar um link temporário.")
+
+    client_ref = str(payload.get("client_ref") or payload.get("customer_external_id") or "").strip()
+    if not client_ref:
+        raise HTTPException(status_code=400, detail="Cliente não informado")
+    customer = (
+        db.query(Customer)
+        .filter(
+            Customer.company_id == company.id,
+            Customer.external_id == client_ref,
+            Customer.is_deleted == False,  # noqa: E712
+        )
+        .first()
+    )
+    if not customer:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado na CORE")
+
+    db.query(SingleUseBookingLink).filter(
+        SingleUseBookingLink.company_id == company.id,
+        SingleUseBookingLink.customer_external_id == customer.external_id,
+        SingleUseBookingLink.is_active == True,  # noqa: E712
+        SingleUseBookingLink.used_at.is_(None),
+    ).update({"is_active": False}, synchronize_session=False)
+
+    token = secrets.token_urlsafe(32)
+    link = SingleUseBookingLink(
+        company_id=company.id,
+        customer_external_id=customer.external_id,
+        token_hash=_single_use_token_hash(token),
+        created_by_user_id=current_user.id,
+        is_active=True,
+    )
+    db.add(link)
+    db.commit()
+    db.refresh(link)
+    return {
+        "ok": True,
+        "single_use": True,
+        "client_ref": customer.external_id,
+        "client_name": customer.name,
+        "url": _single_use_url(request, company.slug, token),
+    }
 
 
 @router.post("/api/studio/public-booking/config")
@@ -765,6 +906,145 @@ def public_create_appointment(slug: str, payload: dict[str, Any], db: Session = 
     }
 
 
+@router.api_route("/agendamento-publico/{slug}/t/{token}", methods=["GET", "POST"], response_class=HTMLResponse)
+def public_booking_single_use_page(
+    request: Request,
+    slug: str,
+    token: str,
+    db: Session = Depends(get_db),
+    servico_id: str = Form(default=""),
+    profissional_id: str = Form(default=""),
+    data: str = Form(default=""),
+    hora: str = Form(default=""),
+    observacoes: str = Form(default=""),
+):
+    company = _company_by_slug(db, slug)
+    record = _config_record(db, company.id)
+    cfg = _settings(record)
+    if not record or not record.is_enabled:
+        return templates.TemplateResponse(
+            request=request,
+            name="agendamento_publico_fechada.html",
+            context={"cfg": cfg, "company_name": company.name or company.slug},
+            status_code=200,
+        )
+
+    link = _single_use_link_by_token(db, company.id, token)
+    if not link or link.used_at is not None:
+        return templates.TemplateResponse(
+            request=request,
+            name="agendamento_publico_link_encerrado.html",
+            context={"cfg": cfg, "company_name": company.name or company.slug},
+            status_code=200,
+        )
+    customer = _single_use_client(db, company.id, link)
+    if not customer:
+        link.is_active = False
+        db.commit()
+        return templates.TemplateResponse(
+            request=request,
+            name="agendamento_publico_link_encerrado.html",
+            context={"cfg": cfg, "company_name": company.name or company.slug},
+            status_code=200,
+        )
+
+    error_message = None
+    if request.method == "POST":
+        reserved_at = datetime.now()
+        updated = (
+            db.query(SingleUseBookingLink)
+            .filter(
+                SingleUseBookingLink.id == link.id,
+                SingleUseBookingLink.is_active == True,  # noqa: E712
+                SingleUseBookingLink.used_at.is_(None),
+            )
+            .update({"used_at": reserved_at}, synchronize_session=False)
+        )
+        db.commit()
+        if updated != 1:
+            return templates.TemplateResponse(
+                request=request,
+                name="agendamento_publico_link_encerrado.html",
+                context={"cfg": cfg, "company_name": company.name or company.slug},
+                status_code=200,
+            )
+        try:
+            appointment = _create_booking(
+                db=db,
+                company=company,
+                record=record,
+                existing_client_ref=customer.external_id,
+                client_name=customer.name,
+                phone=customer.phone or "",
+                service_external_id=servico_id.strip(),
+                professional_external_id=profissional_id.strip() or None,
+                day_iso=data.strip(),
+                hour=hora.strip(),
+                notes=observacoes.strip(),
+            )
+            link = db.query(SingleUseBookingLink).filter(SingleUseBookingLink.id == link.id).first()
+            if link:
+                link.appointment_external_id = appointment.external_id
+                link.is_active = False
+                db.commit()
+            return templates.TemplateResponse(
+                request=request,
+                name="agendamento_publico_sucesso.html",
+                context={
+                    "appointment_code": appointment.external_id,
+                    "new_booking_url": None,
+                    "single_use_completed": True,
+                    "theme": cfg.get("tema") or "claro",
+                },
+            )
+        except HTTPException as exc:
+            db.rollback()
+            link = db.query(SingleUseBookingLink).filter(SingleUseBookingLink.id == link.id).first()
+            if link:
+                link.used_at = None
+                link.is_active = True
+                db.commit()
+            error_message = str(exc.detail)
+        except Exception:
+            db.rollback()
+            link = db.query(SingleUseBookingLink).filter(SingleUseBookingLink.id == link.id).first()
+            if link:
+                link.used_at = None
+                link.is_active = True
+                db.commit()
+            error_message = "Não foi possível concluir o agendamento agora. Tente novamente."
+
+    services = [
+        {"id": s.external_id, "nome": s.name, "preco": float(s.price or 0), "duracao_min": int(s.duration_minutes or 60)}
+        for s in db.query(ServiceCatalog).filter(ServiceCatalog.company_id == company.id, ServiceCatalog.is_deleted == False).order_by(ServiceCatalog.name).all()  # noqa: E712
+    ]
+    professionals = [
+        {"id": p.external_id, "nome": p.name}
+        for p in db.query(Professional).filter(Professional.company_id == company.id, Professional.is_deleted == False).order_by(Professional.name).all()  # noqa: E712
+    ]
+    return templates.TemplateResponse(
+        request=request,
+        name="agendamento_publico.html",
+        context={
+            "title": "Agendamento Online",
+            "servicos": services,
+            "profissionais": professionals,
+            "cfg": cfg,
+            "public_calendar": json.dumps(_calendar_data(db, company.id, cfg), ensure_ascii=False),
+            "dias_funcionamento_label": _work_days_label(cfg),
+            "client_search_url": f"/api/public/booking/{company.slug}/clients/search",
+            "availability_url": f"/api/public/booking/{company.slug}/availability",
+            "error_message": error_message,
+            "temporary_mode": True,
+            "temporary_client": {
+                "external_id": customer.external_id,
+                "name": customer.name,
+                "phone": customer.phone or "",
+            },
+        },
+    )
+
+
 @router.api_route("/agendamento-publico/{slug}", methods=["GET", "POST"], response_class=HTMLResponse)
 def public_booking_page(
     request: Request,
@@ -850,6 +1130,8 @@ def public_booking_page(
             "client_search_url": f"/api/public/booking/{company.slug}/clients/search",
             "availability_url": f"/api/public/booking/{company.slug}/availability",
             "error_message": error_message,
+            "temporary_mode": False,
+            "temporary_client": None,
         },
     )
 
