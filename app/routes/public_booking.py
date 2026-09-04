@@ -47,6 +47,9 @@ DEFAULT_BOOKING_SETTINGS: dict[str, Any] = {
     "mostrar_selo": False,
     "agendamento_online_modo": "flexivel",
     "agendamento_online_horarios_fixos": "08:00,10:00,14:00,16:00",
+    "agendamento_online_domingo_ativo": False,
+    "agendamento_online_domingo_horarios": "",
+    "agendamento_online_domingo_max_clientes": 2,
     "agendamento_online_meses_modo": "todos",
     "agendamento_online_meses": "1,2,3,4,5,6,7,8,9,10,11,12",
 }
@@ -58,6 +61,9 @@ ALLOWED_SETTINGS = set(DEFAULT_BOOKING_SETTINGS)
 DS_GO_AUTHORITY_SETTINGS = {
     "agendamento_online_modo",
     "agendamento_online_horarios_fixos",
+    "agendamento_online_domingo_ativo",
+    "agendamento_online_domingo_horarios",
+    "agendamento_online_domingo_max_clientes",
     "agendamento_online_meses_modo",
     "agendamento_online_meses",
 }
@@ -113,15 +119,25 @@ def _normalize_settings(payload: dict[str, Any]) -> dict[str, Any]:
         if key in payload:
             cleaned[key] = payload[key]
 
-    for key in ("intervalo_min", "tempo_pausa_min", "max_agendamentos_dia"):
+    for key in ("intervalo_min", "tempo_pausa_min", "max_agendamentos_dia", "agendamento_online_domingo_max_clientes"):
         if key in cleaned:
             try:
                 cleaned[key] = max(0, int(cleaned[key]))
             except Exception:
                 cleaned.pop(key, None)
 
+    if "agendamento_online_domingo_max_clientes" in cleaned:
+        cleaned["agendamento_online_domingo_max_clientes"] = max(1, min(20, int(cleaned["agendamento_online_domingo_max_clientes"] or 1)))
+
     if "mostrar_selo" in cleaned:
         cleaned["mostrar_selo"] = bool(cleaned["mostrar_selo"])
+
+    if "agendamento_online_domingo_ativo" in cleaned:
+        raw = cleaned["agendamento_online_domingo_ativo"]
+        if isinstance(raw, str):
+            cleaned["agendamento_online_domingo_ativo"] = raw.strip().lower() in {"1", "true", "yes", "sim", "on"}
+        else:
+            cleaned["agendamento_online_domingo_ativo"] = bool(raw)
 
     if "agendamento_online_modo" in cleaned:
         modo = str(cleaned["agendamento_online_modo"] or "flexivel").strip().lower()
@@ -132,6 +148,9 @@ def _normalize_settings(payload: dict[str, Any]) -> dict[str, Any]:
 
     if "agendamento_online_horarios_fixos" in cleaned:
         cleaned["agendamento_online_horarios_fixos"] = ",".join(_normalize_fixed_times(cleaned["agendamento_online_horarios_fixos"]))
+
+    if "agendamento_online_domingo_horarios" in cleaned:
+        cleaned["agendamento_online_domingo_horarios"] = ",".join(_normalize_fixed_times(cleaned["agendamento_online_domingo_horarios"]))
 
     if "agendamento_online_meses_modo" in cleaned:
         mode = str(cleaned.get("agendamento_online_meses_modo") or "todos").strip().lower()
@@ -195,7 +214,23 @@ def _work_days(cfg: dict[str, Any]) -> set[int]:
 
 def _work_days_label(cfg: dict[str, Any]) -> str:
     labels = {1: "Seg", 2: "Ter", 3: "Qua", 4: "Qui", 5: "Sex", 6: "Sáb", 7: "Dom"}
-    return ", ".join(labels[d] for d in range(1, 8) if d in _work_days(cfg))
+    days = set(_work_days(cfg))
+    if _sunday_enabled(cfg):
+        days.add(7)
+    else:
+        days.discard(7)
+    return ", ".join(labels[d] for d in range(1, 8) if d in days)
+
+
+def _is_sunday(day_iso: str) -> bool:
+    try:
+        return datetime.strptime(day_iso, "%Y-%m-%d").date().weekday() == 6
+    except Exception:
+        return False
+
+
+def _sunday_enabled(cfg: dict[str, Any]) -> bool:
+    return bool(cfg.get("agendamento_online_domingo_ativo"))
 
 
 def _is_work_day(day_iso: str, cfg: dict[str, Any]) -> bool:
@@ -203,7 +238,19 @@ def _is_work_day(day_iso: str, cfg: dict[str, Any]) -> bool:
         d = datetime.strptime(day_iso, "%Y-%m-%d").date()
     except Exception:
         return False
+    if d.weekday() == 6:
+        # Domingo é uma exceção controlada diretamente pelo DS Go. Isso evita
+        # divergência com o funcionamento_dias geral publicado pelo Studio.
+        return _sunday_enabled(cfg)
     return (d.weekday() + 1) in _work_days(cfg)
+
+
+def _day_limit(cfg: dict[str, Any], day_iso: str) -> int:
+    key = "agendamento_online_domingo_max_clientes" if _is_sunday(day_iso) and _sunday_enabled(cfg) else "max_agendamentos_dia"
+    try:
+        return max(0, int(cfg.get(key) or 0))
+    except Exception:
+        return 0
 
 
 def _normalize_fixed_times(raw: Any) -> list[str]:
@@ -299,10 +346,7 @@ def _day_count(db: Session, company_id: int, day_iso: str) -> int:
 
 
 def _day_full(db: Session, company_id: int, day_iso: str, cfg: dict[str, Any]) -> bool:
-    try:
-        limit = int(cfg.get("max_agendamentos_dia") or 0)
-    except Exception:
-        limit = 0
+    limit = _day_limit(cfg, day_iso)
     return limit > 0 and _day_count(db, company_id, day_iso) >= limit
 
 
@@ -374,24 +418,35 @@ def _available_slots(
 
     duration = int(service.duration_minutes or 60)
     pause = max(0, int(cfg.get("tempo_pausa_min") or 0))
-    start_label = str(cfg.get("horario_inicio") or "08:00")
-    end_label = str(cfg.get("horario_fim") or "18:00")
-    try:
-        day_start = datetime.strptime(f"{day_iso} {start_label}", "%Y-%m-%d %H:%M")
-        day_end = datetime.strptime(f"{day_iso} {end_label}", "%Y-%m-%d %H:%M")
-    except Exception:
-        return []
+    sunday_special = selected_day.weekday() == 6 and _sunday_enabled(cfg)
 
-    mode = str(cfg.get("agendamento_online_modo") or "flexivel").lower()
-    if mode == "fixo":
-        base_times = _normalize_fixed_times(cfg.get("agendamento_online_horarios_fixos"))
+    day_start: datetime | None = None
+    day_end: datetime | None = None
+    if sunday_special:
+        # Domingo usa horários próprios escolhidos no DS Go, independentemente
+        # do modo geral fixo/flexível e do expediente do Studio.
+        base_times = _normalize_fixed_times(cfg.get("agendamento_online_domingo_horarios"))
+        if not base_times:
+            return []
     else:
-        interval = max(5, int(cfg.get("intervalo_min") or 15))
-        cursor = day_start
-        base_times: list[str] = []
-        while cursor < day_end:
-            base_times.append(cursor.strftime("%H:%M"))
-            cursor += timedelta(minutes=interval)
+        start_label = str(cfg.get("horario_inicio") or "08:00")
+        end_label = str(cfg.get("horario_fim") or "18:00")
+        try:
+            day_start = datetime.strptime(f"{day_iso} {start_label}", "%Y-%m-%d %H:%M")
+            day_end = datetime.strptime(f"{day_iso} {end_label}", "%Y-%m-%d %H:%M")
+        except Exception:
+            return []
+
+        mode = str(cfg.get("agendamento_online_modo") or "flexivel").lower()
+        if mode == "fixo":
+            base_times = _normalize_fixed_times(cfg.get("agendamento_online_horarios_fixos"))
+        else:
+            interval = max(5, int(cfg.get("intervalo_min") or 15))
+            cursor = day_start
+            base_times = []
+            while cursor < day_end:
+                base_times.append(cursor.strftime("%H:%M"))
+                cursor += timedelta(minutes=interval)
 
     slots: list[str] = []
     now = datetime.now()
@@ -401,7 +456,7 @@ def _available_slots(
         except Exception:
             continue
         end = start + timedelta(minutes=duration + pause)
-        if start < day_start or end > day_end:
+        if day_start is not None and day_end is not None and (start < day_start or end > day_end):
             continue
         if start <= now:
             continue
@@ -434,10 +489,6 @@ def _calendar_data(db: Session, company_id: int, cfg: dict[str, Any], months: in
                 continue
             key = dt.date().isoformat()
             counts[key] = counts.get(key, 0) + 1
-        try:
-            limit = int(cfg.get("max_agendamentos_dia") or 20)
-        except Exception:
-            limit = 20
         weeks: list[list[dict[str, Any] | None]] = []
         for week in cal.monthdatescalendar(year, month):
             row: list[dict[str, Any] | None] = []
@@ -447,6 +498,7 @@ def _calendar_data(db: Session, company_id: int, cfg: dict[str, Any], months: in
                     continue
                 iso = d.isoformat()
                 count = counts.get(iso, 0)
+                limit = _day_limit(cfg, iso)
                 if d < today:
                     state = "past"
                 elif not _is_work_day(iso, cfg):
