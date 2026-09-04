@@ -1,0 +1,11 @@
+DSYSTEM SERVER CORE V1.0.1.16 - VALIDACAO
+
+[OK] Base V1.0.1.15 preservada.
+[OK] Novos campos de domingo adicionados ao settings permitido.
+[OK] Campos de domingo protegidos como autoridade do DS Go.
+[OK] Normalização de bool, horários e limite de domingo.
+[OK] _is_work_day trata domingo pela autoridade do DS Go.
+[OK] _day_full usa capacidade específica de domingo.
+[OK] _available_slots usa somente horários específicos de domingo.
+[OK] calendário público usa capacidade específica por data.
+[OK] meses, link temporário, logo, Agenda Fechada e ONLINE-UUID preservados.
