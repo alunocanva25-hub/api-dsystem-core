@@ -1,19 +1,31 @@
-# DSYSTEM SERVER CORE V1.0.1.16
+# DSYSTEM SERVER CORE V1.0.1.17
 
-Build: `DSYSTEM_SERVER_CORE_V1.0.1.16_DOMINGO_ESPECIAL_DS_GO`
+Build: `DSYSTEM_SERVER_CORE_V1.0.1.17_TAREFAS_HORARIOS_PERSONALIZADOS`
 
-Atualização incremental sobre a V1.0.1.15.
+Atualização incremental sobre a V1.0.1.16.
 
-## Novidade
-A Agenda Online passa a suportar domingo especial controlado pelo DS Go, com:
-- ativação própria;
-- horários próprios;
-- limite próprio de clientes.
+## Novidades
+- tarefas pessoais sincronizadas pelo DS Go;
+- bloqueio parcial de capacidade na Agenda Online;
+- bloqueio de dia inteiro;
+- modo de agenda `personalizado`;
+- horários personalizados controlados pelo DS Go.
 
-O Studio não pode sobrescrever esses campos.
+A página pública não expõe título ou observação das tarefas: usa apenas o bloqueio de capacidade.
+
+## Novos endpoints autenticados
+- `GET /api/booking/personal-tasks`
+- `POST /api/booking/personal-tasks`
+
+## Autoridade do DS Go
+`agendamento_online_horarios_personalizados` passa a fazer parte dos campos que o Studio não pode sobrescrever.
 
 ## Preservado
-Meses da Agenda Online, link temporário de uso único, identidade/logo, Agenda Fechada, multiempresa, ONLINE-UUID e integrações existentes.
+Domingo especial, meses da Agenda Online, link temporário de uso único, identidade/logo, Agenda Fechada, multiempresa, ONLINE-UUID, UPSERT e integrações existentes.
+
+## Integração
+- DS Go: `V1.0.0.36`
+- Studio: permanece `V7.9.5.110`
 
 ## Render
-`APP_VERSION=1.0.1.16`
+`APP_VERSION=1.0.1.17`

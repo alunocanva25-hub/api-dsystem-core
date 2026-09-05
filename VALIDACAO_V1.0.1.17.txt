@@ -1,0 +1,13 @@
+DSYSTEM SERVER CORE V1.0.1.17 - VALIDACAO
+
+[OK] Build ID V1.0.1.17_TAREFAS_HORARIOS_PERSONALIZADOS.
+[OK] APP_VERSION padrão 1.0.1.17.
+[OK] compileall app/scripts sem erro.
+[OK] Modelo PersonalBookingTask registrado no metadata.
+[OK] GET/POST /api/booking/personal-tasks presentes.
+[OK] UPSERT por company_id + external_id.
+[OK] Bloqueio parcial aplicado à capacidade/disponibilidade.
+[OK] Bloqueio all_day aplicado à disponibilidade e lotação.
+[OK] Modo personalizado e horários personalizados aceitos.
+[OK] Horários personalizados protegidos como autoridade do DS Go.
+[OK] Teste SQLite: 3 slots -> tarefa 2 vagas -> 1 slot -> all_day -> 0 slots.
