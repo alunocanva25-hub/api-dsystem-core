@@ -21,7 +21,7 @@ from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.business import Appointment, Customer, Professional, ServiceCatalog
 from app.models.company import Company
-from app.models.public_booking import PublicBookingConfig, SingleUseBookingLink
+from app.models.public_booking import PublicBookingConfig, SingleUseBookingLink, PersonalBookingTask
 from app.models.user import User
 from app.routes.deps import get_current_user
 
@@ -47,6 +47,7 @@ DEFAULT_BOOKING_SETTINGS: dict[str, Any] = {
     "mostrar_selo": False,
     "agendamento_online_modo": "flexivel",
     "agendamento_online_horarios_fixos": "08:00,10:00,14:00,16:00",
+    "agendamento_online_horarios_personalizados": "",
     "agendamento_online_domingo_ativo": False,
     "agendamento_online_domingo_horarios": "",
     "agendamento_online_domingo_max_clientes": 2,
@@ -61,6 +62,7 @@ ALLOWED_SETTINGS = set(DEFAULT_BOOKING_SETTINGS)
 DS_GO_AUTHORITY_SETTINGS = {
     "agendamento_online_modo",
     "agendamento_online_horarios_fixos",
+    "agendamento_online_horarios_personalizados",
     "agendamento_online_domingo_ativo",
     "agendamento_online_domingo_horarios",
     "agendamento_online_domingo_max_clientes",
@@ -141,13 +143,16 @@ def _normalize_settings(payload: dict[str, Any]) -> dict[str, Any]:
 
     if "agendamento_online_modo" in cleaned:
         modo = str(cleaned["agendamento_online_modo"] or "flexivel").strip().lower()
-        cleaned["agendamento_online_modo"] = "fixo" if modo == "fixo" else "flexivel"
+        cleaned["agendamento_online_modo"] = modo if modo in {"flexivel", "fixo", "personalizado"} else "flexivel"
 
     if "funcionamento_dias" in cleaned:
         cleaned["funcionamento_dias"] = _normalize_work_days(cleaned["funcionamento_dias"])
 
     if "agendamento_online_horarios_fixos" in cleaned:
         cleaned["agendamento_online_horarios_fixos"] = ",".join(_normalize_fixed_times(cleaned["agendamento_online_horarios_fixos"]))
+
+    if "agendamento_online_horarios_personalizados" in cleaned:
+        cleaned["agendamento_online_horarios_personalizados"] = ",".join(_normalize_fixed_times(cleaned["agendamento_online_horarios_personalizados"]))
 
     if "agendamento_online_domingo_horarios" in cleaned:
         cleaned["agendamento_online_domingo_horarios"] = ",".join(_normalize_fixed_times(cleaned["agendamento_online_domingo_horarios"]))
@@ -345,9 +350,38 @@ def _day_count(db: Session, company_id: int, day_iso: str) -> int:
     return len(_day_appointments(db, company_id, day_iso))
 
 
+def _personal_tasks_for_day(db: Session, company_id: int, day_iso: str) -> list[PersonalBookingTask]:
+    return (
+        db.query(PersonalBookingTask)
+        .filter(
+            PersonalBookingTask.company_id == company_id,
+            PersonalBookingTask.day_iso == day_iso,
+            PersonalBookingTask.is_deleted == False,  # noqa: E712
+        )
+        .all()
+    )
+
+
+def _task_capacity_block(db: Session, company_id: int, day_iso: str, cfg: dict[str, Any]) -> tuple[bool, int]:
+    tasks = _personal_tasks_for_day(db, company_id, day_iso)
+    if any(bool(task.all_day) for task in tasks):
+        return True, _day_limit(cfg, day_iso)
+    blocked = sum(max(0, int(task.blocked_slots or 0)) for task in tasks)
+    return False, blocked
+
+
+def _effective_day_count(db: Session, company_id: int, day_iso: str, cfg: dict[str, Any]) -> int:
+    all_day, blocked = _task_capacity_block(db, company_id, day_iso, cfg)
+    limit = _day_limit(cfg, day_iso)
+    if all_day:
+        return limit if limit > 0 else max(1, _day_count(db, company_id, day_iso))
+    return _day_count(db, company_id, day_iso) + blocked
+
+
 def _day_full(db: Session, company_id: int, day_iso: str, cfg: dict[str, Any]) -> bool:
     limit = _day_limit(cfg, day_iso)
-    return limit > 0 and _day_count(db, company_id, day_iso) >= limit
+    all_day, _ = _task_capacity_block(db, company_id, day_iso, cfg)
+    return all_day or (limit > 0 and _effective_day_count(db, company_id, day_iso, cfg) >= limit)
 
 
 def _service(db: Session, company_id: int, external_id: str) -> ServiceCatalog:
@@ -429,24 +463,31 @@ def _available_slots(
         if not base_times:
             return []
     else:
-        start_label = str(cfg.get("horario_inicio") or "08:00")
-        end_label = str(cfg.get("horario_fim") or "18:00")
-        try:
-            day_start = datetime.strptime(f"{day_iso} {start_label}", "%Y-%m-%d %H:%M")
-            day_end = datetime.strptime(f"{day_iso} {end_label}", "%Y-%m-%d %H:%M")
-        except Exception:
-            return []
-
         mode = str(cfg.get("agendamento_online_modo") or "flexivel").lower()
-        if mode == "fixo":
-            base_times = _normalize_fixed_times(cfg.get("agendamento_online_horarios_fixos"))
+        if mode == "personalizado":
+            # No modo personalizado os horários escolhidos no DS Go são a
+            # própria janela válida; não dependem do expediente do Studio.
+            base_times = _normalize_fixed_times(cfg.get("agendamento_online_horarios_personalizados"))
+            if not base_times:
+                return []
         else:
-            interval = max(5, int(cfg.get("intervalo_min") or 15))
-            cursor = day_start
-            base_times = []
-            while cursor < day_end:
-                base_times.append(cursor.strftime("%H:%M"))
-                cursor += timedelta(minutes=interval)
+            start_label = str(cfg.get("horario_inicio") or "08:00")
+            end_label = str(cfg.get("horario_fim") or "18:00")
+            try:
+                day_start = datetime.strptime(f"{day_iso} {start_label}", "%Y-%m-%d %H:%M")
+                day_end = datetime.strptime(f"{day_iso} {end_label}", "%Y-%m-%d %H:%M")
+            except Exception:
+                return []
+
+            if mode == "fixo":
+                base_times = _normalize_fixed_times(cfg.get("agendamento_online_horarios_fixos"))
+            else:
+                interval = max(5, int(cfg.get("intervalo_min") or 15))
+                cursor = day_start
+                base_times = []
+                while cursor < day_end:
+                    base_times.append(cursor.strftime("%H:%M"))
+                    cursor += timedelta(minutes=interval)
 
     slots: list[str] = []
     now = datetime.now()
@@ -462,6 +503,21 @@ def _available_slots(
             continue
         if not _slot_conflicts(db, company_id, start, end):
             slots.append(hour)
+
+    # Tarefas pessoais do DS Go reservam capacidade sem expor detalhes ao cliente.
+    # Quando a tarefa ocupa N horários, N opções deixam de ser oferecidas na página.
+    all_day_task, blocked_slots = _task_capacity_block(db, company_id, day_iso, cfg)
+    if all_day_task:
+        return []
+    if blocked_slots > 0 and slots:
+        keep = max(0, len(slots) - blocked_slots)
+        slots = slots[:keep]
+
+    # Nunca ofereça mais vagas do que a capacidade diária remanescente.
+    limit = _day_limit(cfg, day_iso)
+    if limit > 0:
+        remaining = max(0, limit - _effective_day_count(db, company_id, day_iso, cfg))
+        slots = slots[:remaining]
     return slots
 
 
@@ -489,6 +545,24 @@ def _calendar_data(db: Session, company_id: int, cfg: dict[str, Any], months: in
                 continue
             key = dt.date().isoformat()
             counts[key] = counts.get(key, 0) + 1
+
+        task_blocks: dict[str, tuple[bool, int]] = {}
+        task_rows = (
+            db.query(PersonalBookingTask)
+            .filter(
+                PersonalBookingTask.company_id == company_id,
+                PersonalBookingTask.is_deleted == False,  # noqa: E712
+                PersonalBookingTask.day_iso.like(f"{year:04d}-{month:02d}%"),
+            )
+            .all()
+        )
+        for task in task_rows:
+            current_all_day, current_blocked = task_blocks.get(task.day_iso, (False, 0))
+            task_blocks[task.day_iso] = (
+                current_all_day or bool(task.all_day),
+                current_blocked + max(0, int(task.blocked_slots or 0)),
+            )
+
         weeks: list[list[dict[str, Any] | None]] = []
         for week in cal.monthdatescalendar(year, month):
             row: list[dict[str, Any] | None] = []
@@ -497,13 +571,15 @@ def _calendar_data(db: Session, company_id: int, cfg: dict[str, Any], months: in
                     row.append(None)
                     continue
                 iso = d.isoformat()
-                count = counts.get(iso, 0)
+                appointment_count = counts.get(iso, 0)
+                all_day_task, blocked_slots = task_blocks.get(iso, (False, 0))
+                count = _day_limit(cfg, iso) if all_day_task else appointment_count + blocked_slots
                 limit = _day_limit(cfg, iso)
                 if d < today:
                     state = "past"
                 elif not _is_work_day(iso, cfg):
                     state = "off"
-                elif limit > 0 and count >= limit:
+                elif all_day_task or (limit > 0 and count >= limit):
                     state = "full"
                 elif count:
                     state = "busy"
@@ -647,6 +723,104 @@ def booking_config_update(payload: dict[str, Any], request: Request, db: Session
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
     record = _save_config(db, company.id, payload, str(payload.get("source") or "ds_go")[:80])
     return _config_response(request, company, record)
+
+
+
+def _personal_task_response(task: PersonalBookingTask) -> dict[str, Any]:
+    return {
+        "id": task.id,
+        "remote_id": task.id,
+        "external_id": task.external_id,
+        "date": task.day_iso,
+        "day_iso": task.day_iso,
+        "title": task.title,
+        "blocked_slots": int(task.blocked_slots or 1),
+        "all_day": bool(task.all_day),
+        "notes": task.notes or "",
+        "deleted": bool(task.is_deleted),
+        "is_deleted": bool(task.is_deleted),
+        "sync_status": "sincronizado",
+    }
+
+
+def _truthy(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in {"1", "true", "yes", "sim", "on"}
+
+
+@router.get("/api/booking/personal-tasks")
+def list_personal_booking_tasks(
+    include_deleted: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    query = db.query(PersonalBookingTask).filter(PersonalBookingTask.company_id == current_user.company_id)
+    if not include_deleted:
+        query = query.filter(PersonalBookingTask.is_deleted == False)  # noqa: E712
+    rows = query.order_by(PersonalBookingTask.day_iso, PersonalBookingTask.created_at).limit(1000).all()
+    return {"items": [_personal_task_response(item) for item in rows]}
+
+
+@router.post("/api/booking/personal-tasks")
+def upsert_personal_booking_task(
+    payload: dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    external_id = str(payload.get("external_id") or "").strip()
+    if not external_id:
+        external_id = f"TASK-{uuid.uuid4().hex.upper()}"
+
+    day_iso = str(payload.get("date") or payload.get("day_iso") or "").strip()
+    try:
+        datetime.strptime(day_iso, "%Y-%m-%d")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Data inválida para a tarefa pessoal")
+
+    deleted = _truthy(payload.get("deleted") or payload.get("is_deleted"))
+    all_day = _truthy(payload.get("all_day") or payload.get("allDay"))
+    try:
+        blocked_slots = int(payload.get("blocked_slots") or payload.get("blockedSlots") or 1)
+    except Exception:
+        blocked_slots = 1
+    blocked_slots = max(1, min(50, blocked_slots))
+
+    title = str(payload.get("title") or "Tarefa pessoal").strip()[:180] or "Tarefa pessoal"
+    notes = str(payload.get("notes") or "").strip()[:2000]
+
+    task = (
+        db.query(PersonalBookingTask)
+        .filter(
+            PersonalBookingTask.company_id == current_user.company_id,
+            PersonalBookingTask.external_id == external_id,
+        )
+        .first()
+    )
+    if task is None:
+        task = PersonalBookingTask(
+            company_id=current_user.company_id,
+            external_id=external_id,
+            day_iso=day_iso,
+            title=title,
+            blocked_slots=blocked_slots,
+            all_day=all_day,
+            notes=notes or None,
+            created_by_user_id=current_user.id,
+            is_deleted=deleted,
+        )
+        db.add(task)
+    else:
+        task.day_iso = day_iso
+        task.title = title
+        task.blocked_slots = blocked_slots
+        task.all_day = all_day
+        task.notes = notes or None
+        task.is_deleted = deleted
+
+    db.commit()
+    db.refresh(task)
+    return _personal_task_response(task)
 
 
 @router.post("/api/booking/temporary-links")

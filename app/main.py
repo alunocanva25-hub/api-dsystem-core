@@ -43,10 +43,10 @@ app.include_router(network.router)
 app.include_router(public_booking.router)
 
 
-# V1.0.1.16 — domingo especial controlado pelo DS Go + preserva meses/link temporário.
+# V1.0.1.17 — tarefas pessoais com bloqueio de capacidade + horários personalizados controlados pelo DS Go.
 # Ele permite confirmar que o código publicado realmente contém a Agenda Online,
 # mesmo quando APP_VERSION no ambiente foi preenchido manualmente.
-BUILD_ID = "DSYSTEM_SERVER_CORE_V1.0.1.16_DOMINGO_ESPECIAL_DS_GO"
+BUILD_ID = "DSYSTEM_SERVER_CORE_V1.0.1.17_TAREFAS_HORARIOS_PERSONALIZADOS"
 EXPECTED_PUBLIC_BOOKING_ROUTE = "/agendamento-publico/{slug}"
 
 

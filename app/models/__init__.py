@@ -4,10 +4,10 @@ from app.models.module import Module, CompanyModule
 from app.models.logs import SyncLog, AuditLog
 from app.models.business import Customer, Appointment, TransactionRecord, Professional, ServiceCatalog
 from app.models.product_config import Product, Segment, Plan, CompanyProduct, CompanyProductModule
-from app.models.public_booking import PublicBookingConfig, SingleUseBookingLink
+from app.models.public_booking import PublicBookingConfig, SingleUseBookingLink, PersonalBookingTask
 
 __all__ = [
     "Company", "User", "Module", "CompanyModule", "SyncLog", "AuditLog",
     "Customer", "Appointment", "TransactionRecord", "Professional", "ServiceCatalog",
-    "Product", "Segment", "Plan", "CompanyProduct", "CompanyProductModule", "PublicBookingConfig", "SingleUseBookingLink",
+    "Product", "Segment", "Plan", "CompanyProduct", "CompanyProductModule", "PublicBookingConfig", "SingleUseBookingLink", "PersonalBookingTask",
 ]
